@@ -1,0 +1,11 @@
+# macOS metadata
+.DS_Store
+
+# Xcode local state and build products
+.build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Locally generated release artifacts
+dist/
