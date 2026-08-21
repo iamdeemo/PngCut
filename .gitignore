@@ -9,3 +9,6 @@ xcuserdata/
 
 # Locally generated release artifacts
 dist/
+
+# Isolated feature worktrees
+.worktrees/
