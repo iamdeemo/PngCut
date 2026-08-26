@@ -1,0 +1,68 @@
+name: Release PngCut
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows (${{ matrix.architecture }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: [x64, x86]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test Windows application
+        run: dotnet test .\windows\PngCut.Tests\PngCut.Tests.csproj -c Release -p:Platform=${{ matrix.architecture }}
+      - name: Build portable ZIP
+        shell: pwsh
+        run: .\windows\build\Build-Zip.ps1 ${{ matrix.architecture }}
+      - name: Verify portable ZIP
+        shell: pwsh
+        run: .\windows\build\Test-ReleaseLayout.ps1 -ZipPath .\windows\dist\PngCut-Windows-${{ matrix.architecture }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PngCut-Windows-${{ matrix.architecture }}
+          path: windows/dist/PngCut-Windows-${{ matrix.architecture }}.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build DMG
+        run: ./macos/scripts/create-dmg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PngCut-macOS
+          path: macos/dist/PngCut-*.dmg
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "PngCut $TAG" --generate-notes
+          fi
+          gh release upload "$TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
