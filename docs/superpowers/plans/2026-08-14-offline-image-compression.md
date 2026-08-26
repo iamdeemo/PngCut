@@ -14,11 +14,11 @@
 
 **Files:**
 
-- Modify: `FFPNG/FFPNG/Services/FileDiscovery.swift`
-- Modify: `FFPNG/FFPNG/Domain/CompressionTask.swift`
-- Modify: `FFPNG/FFPNG/Domain/OutputPolicy.swift`
-- Modify: `FFPNG/FFPNGTests/FileDiscoveryTests.swift`
-- Modify: `FFPNG/FFPNGTests/OutputPolicyTests.swift`
+- Modify: `PngCut/PngCut/Services/FileDiscovery.swift`
+- Modify: `PngCut/PngCut/Domain/CompressionTask.swift`
+- Modify: `PngCut/PngCut/Domain/OutputPolicy.swift`
+- Modify: `PngCut/PngCutTests/FileDiscoveryTests.swift`
+- Modify: `PngCut/PngCutTests/OutputPolicyTests.swift`
 
 - [ ] **Step 1: Write failing discovery and extension tests.**
 
@@ -47,7 +47,7 @@ func testAdjacentJPEGOutputKeepsJPEGExtension() throws {
 
 - [ ] **Step 2: Run the test to verify red.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGTests/FileDiscoveryTests -only-testing:FFPNGTests/OutputPolicyTests test`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutTests/FileDiscoveryTests -only-testing:PngCutTests/OutputPolicyTests test`
 
 Expected: JPG/JPEG discovery assertion fails and JPEG output is incorrectly named `.png`.
 
@@ -83,15 +83,15 @@ Expected: all selected tests pass.
 
 **Files:**
 
-- Create: `FFPNG/scripts/build-pngquant.sh`
-- Create: `FFPNG/scripts/build-mozjpeg.sh`
-- Create: `FFPNG/FFPNG/Services/PngquantCompressor.swift`
-- Create: `FFPNG/FFPNG/Services/MozJPEGCompressor.swift`
-- Create: `FFPNG/FFPNGTests/PngquantCompressorTests.swift`
-- Create: `FFPNG/FFPNGTests/MozJPEGCompressorTests.swift`
-- Modify: `FFPNG/FFPNG/Services/ImageCompressor.swift`
-- Modify: `FFPNG/FFPNG/Services/OxipngCompressor.swift`
-- Modify: `FFPNG/FFPNG.xcodeproj/project.pbxproj`
+- Create: `PngCut/scripts/build-pngquant.sh`
+- Create: `PngCut/scripts/build-mozjpeg.sh`
+- Create: `PngCut/PngCut/Services/PngquantCompressor.swift`
+- Create: `PngCut/PngCut/Services/MozJPEGCompressor.swift`
+- Create: `PngCut/PngCutTests/PngquantCompressorTests.swift`
+- Create: `PngCut/PngCutTests/MozJPEGCompressorTests.swift`
+- Modify: `PngCut/PngCut/Services/ImageCompressor.swift`
+- Modify: `PngCut/PngCut/Services/OxipngCompressor.swift`
+- Modify: `PngCut/PngCut.xcodeproj/project.pbxproj`
 
 - [ ] **Step 1: Write failing injected-executable tests.**
 
@@ -114,7 +114,7 @@ Add equivalent MozJPEG tests covering successful output, non-zero exit mapped to
 
 - [ ] **Step 2: Run the compressor tests to verify red.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGTests/PngquantCompressorTests -only-testing:FFPNGTests/MozJPEGCompressorTests test`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutTests/PngquantCompressorTests -only-testing:PngCutTests/MozJPEGCompressorTests test`
 
 Expected: compiler errors because the two compressor types do not exist.
 
@@ -141,7 +141,7 @@ Map pngquant exit status 99 to a no-op by copying the source to the temporary de
 
 - [ ] **Step 5: Add project references, build resources, and verify green.**
 
-Run: `./FFPNG/scripts/build-pngquant.sh && ./FFPNG/scripts/build-mozjpeg.sh && xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGTests/PngquantCompressorTests -only-testing:FFPNGTests/MozJPEGCompressorTests test`
+Run: `./PngCut/scripts/build-pngquant.sh && ./PngCut/scripts/build-mozjpeg.sh && xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutTests/PngquantCompressorTests -only-testing:PngCutTests/MozJPEGCompressorTests test`
 
 Expected: scripts report both Mach-O architectures and all selected tests pass.
 
@@ -149,13 +149,13 @@ Expected: scripts report both Mach-O architectures and all selected tests pass.
 
 **Files:**
 
-- Modify: `FFPNG/FFPNG/App/AppModel.swift`
-- Delete: `FFPNG/FFPNG/Services/TinifyCompressor.swift`
-- Delete: `FFPNG/FFPNG/Services/KeychainStore.swift`
-- Delete: `FFPNG/FFPNGTests/TinifyCompressorTests.swift`
-- Delete: `FFPNG/FFPNGTests/KeychainStoreTests.swift`
-- Modify: `FFPNG/FFPNGTests/FFPNGTests.swift`
-- Modify: `FFPNG/FFPNG.xcodeproj/project.pbxproj`
+- Modify: `PngCut/PngCut/App/AppModel.swift`
+- Delete: `PngCut/PngCut/Services/TinifyCompressor.swift`
+- Delete: `PngCut/PngCut/Services/KeychainStore.swift`
+- Delete: `PngCut/PngCutTests/TinifyCompressorTests.swift`
+- Delete: `PngCut/PngCutTests/KeychainStoreTests.swift`
+- Modify: `PngCut/PngCutTests/PngCutTests.swift`
+- Modify: `PngCut/PngCut.xcodeproj/project.pbxproj`
 
 - [ ] **Step 1: Write failing route tests with no API key.**
 
@@ -179,7 +179,7 @@ func testJPEGAlwaysUsesMozJPEGWhenLosslessPNGPreferenceIsSelected() async throws
 
 - [ ] **Step 2: Run the model test to verify red.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGTests/FFPNGTests test`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutTests/PngCutTests test`
 
 Expected: the current balanced path rejects a missing Tinify API key.
 
@@ -189,7 +189,7 @@ Change the compressor factory to `(CompressionEngine) -> any ImageCompressor`. R
 
 - [ ] **Step 4: Run model and queue tests to verify green.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGTests/FFPNGTests -only-testing:FFPNGTests/CompressionQueueTests test`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutTests/PngCutTests -only-testing:PngCutTests/CompressionQueueTests test`
 
 Expected: all selected tests pass with no Tinify or Keychain references.
 
@@ -197,10 +197,10 @@ Expected: all selected tests pass with no Tinify or Keychain references.
 
 **Files:**
 
-- Modify: `FFPNG/FFPNG/Views/MainWindowView.swift`
-- Modify: `FFPNG/FFPNG/Views/SettingsDrawerView.swift`
-- Modify: `FFPNG/FFPNG/Views/TaskRowView.swift`
-- Modify: `FFPNG/FFPNGUITests/FFPNGUITests.swift`
+- Modify: `PngCut/PngCut/Views/MainWindowView.swift`
+- Modify: `PngCut/PngCut/Views/SettingsDrawerView.swift`
+- Modify: `PngCut/PngCut/Views/TaskRowView.swift`
+- Modify: `PngCut/PngCutUITests/PngCutUITests.swift`
 
 - [ ] **Step 1: Replace obsolete API UI tests with failing offline UI tests.**
 
@@ -218,7 +218,7 @@ func testSettingsContainNoTinifyControls() {
 
 - [ ] **Step 2: Run UI tests to verify red.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGUITests test`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutUITests test`
 
 Expected: failures because balanced is disabled and API controls are visible.
 
@@ -230,7 +230,7 @@ Give the capsule `modeSlider` and buttons stable accessibility identifiers. Rend
 
 - [ ] **Step 4: Run UI tests and a debug build to verify green.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' -only-testing:FFPNGUITests test && xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -configuration Debug CODE_SIGNING_ALLOWED=NO build`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' -only-testing:PngCutUITests test && xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -configuration Debug CODE_SIGNING_ALLOWED=NO build`
 
 Expected: all UI tests pass; the debug build succeeds.
 
@@ -238,23 +238,23 @@ Expected: all UI tests pass; the debug build succeeds.
 
 **Files:**
 
-- Create: `FFPNG/LICENSE`
-- Modify: `FFPNG/README.md`
-- Modify: `FFPNG/THIRD_PARTY_NOTICES.md`
-- Modify: `FFPNG/scripts/create-dmg.sh`
+- Create: `PngCut/LICENSE`
+- Modify: `PngCut/README.md`
+- Modify: `PngCut/THIRD_PARTY_NOTICES.md`
+- Modify: `PngCut/scripts/create-dmg.sh`
 
 - [ ] **Step 1: Write a failing release-content check.**
 
 ```bash
-test -f FFPNG/LICENSE
-grep -q 'GNU GENERAL PUBLIC LICENSE' FFPNG/LICENSE
-grep -q 'pngquant' FFPNG/THIRD_PARTY_NOTICES.md
-grep -q 'MozJPEG' FFPNG/THIRD_PARTY_NOTICES.md
+test -f PngCut/LICENSE
+grep -q 'GNU GENERAL PUBLIC LICENSE' PngCut/LICENSE
+grep -q 'pngquant' PngCut/THIRD_PARTY_NOTICES.md
+grep -q 'MozJPEG' PngCut/THIRD_PARTY_NOTICES.md
 ```
 
 - [ ] **Step 2: Run it to verify red.**
 
-Run: `test -f FFPNG/LICENSE && grep -q 'pngquant' FFPNG/THIRD_PARTY_NOTICES.md`
+Run: `test -f PngCut/LICENSE && grep -q 'pngquant' PngCut/THIRD_PARTY_NOTICES.md`
 
 Expected: non-zero exit before GPL material exists.
 
@@ -264,13 +264,13 @@ Add unmodified GPL v3 text as `LICENSE`. Rewrite README to document PNG/JPG/JPEG
 
 - [ ] **Step 4: Build, test, package, and verify the new DMG.**
 
-Run: `xcodebuild -project FFPNG/FFPNG.xcodeproj -scheme FFPNG -destination 'platform=macOS' test && ./FFPNG/scripts/create-dmg.sh && hdiutil verify FFPNG/dist/pngcut-1.0.dmg`
+Run: `xcodebuild -project PngCut/PngCut.xcodeproj -scheme PngCut -destination 'platform=macOS' test && ./PngCut/scripts/create-dmg.sh && hdiutil verify PngCut/dist/pngcut-1.0.dmg`
 
 Expected: tests pass, disk-image verification is valid, and the DMG contains pngcut.app plus Applications.
 
 - [ ] **Step 5: Inspect the release and record its checksum.**
 
-Run: `file FFPNG/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/MacOS/pngcut FFPNG/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/Resources/pngquant/pngquant-arm64 FFPNG/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/Resources/mozjpeg/mozjpeg-arm64 && shasum -a 256 FFPNG/dist/pngcut-1.0.dmg`
+Run: `file PngCut/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/MacOS/pngcut PngCut/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/Resources/pngquant/pngquant-arm64 PngCut/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/Resources/mozjpeg/mozjpeg-arm64 && shasum -a 256 PngCut/dist/pngcut-1.0.dmg`
 
 Expected: universal app executable, arm64 bundled engines, and an SHA-256 for the unsigned/unnotarized DMG.
 

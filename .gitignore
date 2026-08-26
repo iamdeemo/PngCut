@@ -9,3 +9,13 @@ xcuserdata/
 
 # Locally generated release artifacts
 dist/
+
+# Windows local build products and diagnostic captures
+windows/**/bin/
+windows/**/obj/
+windows/dist/
+windows/.vs/
+windows/.diagnostic-*/
+
+# Isolated feature worktrees
+.worktrees/
