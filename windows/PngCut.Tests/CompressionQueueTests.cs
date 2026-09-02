@@ -60,7 +60,8 @@ public class CompressionQueueTests
         await queue.WaitForIdleAsync();
 
         Assert.That(failed.State, Is.EqualTo(TaskState.Failed));
-        Assert.That(failed.ErrorMessage, Does.StartWith("压缩失败："));
+        Assert.That(failed.ErrorCode, Is.EqualTo(FailureCode.EngineFailed));
+        Assert.That(failed.ErrorMessage, Is.EqualTo("压缩程序执行失败。"));
         Assert.That(completed.State, Is.EqualTo(TaskState.Completed));
     }
 
@@ -76,7 +77,8 @@ public class CompressionQueueTests
         await queue.EnqueueAsync(task);
 
         Assert.That(task.State, Is.EqualTo(TaskState.Failed));
-        Assert.That(task.ErrorMessage, Does.Contain("压缩程序执行失败。"));
+        Assert.That(task.ErrorCode, Is.EqualTo(FailureCode.EngineFailed));
+        Assert.That(task.ErrorMessage, Is.EqualTo("压缩程序执行失败。"));
         Assert.That(task.ErrorMessage, Does.Not.Contain(@"C:\secret\input.png"));
     }
 
@@ -96,7 +98,8 @@ public class CompressionQueueTests
         await queue.WaitForIdleAsync();
 
         Assert.That(failed.State, Is.EqualTo(TaskState.Failed));
-        Assert.That(failed.ErrorMessage, Does.Contain("压缩程序执行失败。"));
+        Assert.That(failed.ErrorCode, Is.EqualTo(FailureCode.EngineFailed));
+        Assert.That(failed.ErrorMessage, Is.EqualTo("压缩程序执行失败。"));
         Assert.That(completed.State, Is.EqualTo(TaskState.Completed));
         Assert.That(queue.ReservedOutputCount, Is.EqualTo(1));
     }
@@ -253,6 +256,7 @@ public class CompressionQueueTests
         await queue.WaitForIdleAsync();
 
         Assert.That(failed.State, Is.EqualTo(TaskState.Failed));
+        Assert.That(failed.ErrorCode, Is.EqualTo(FailureCode.OutputInvalid));
         Assert.That(File.Exists(expectedFinal), Is.False);
         Assert.That(runner.TemporaryPaths.All(path => !File.Exists(path)), Is.True);
         Assert.That(File.ReadAllBytes(failed.SourcePath), Is.EqualTo(originalContent));

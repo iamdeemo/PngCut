@@ -13,6 +13,7 @@ readonly DERIVED_DATA_DIRECTORY="${PROJECT_DIRECTORY}/.build/DerivedData-Release
 readonly PRODUCT_DIRECTORY="${DERIVED_DATA_DIRECTORY}/Build/Products/Release"
 readonly APPLICATION_PATH="${PRODUCT_DIRECTORY}/pngcut.app"
 readonly DISTRIBUTION_DIRECTORY="${PROJECT_DIRECTORY}/dist"
+readonly RELEASE_CONTENT_CHECK="${SCRIPT_DIRECTORY}/check-release-content.sh"
 
 cleanup() {
     if [[ -n "${STAGING_DIRECTORY:-}" && -d "${STAGING_DIRECTORY}" ]]; then
@@ -59,6 +60,7 @@ hdiutil create \
     -ov \
     "${TEMPORARY_DMG}"
 hdiutil verify "${TEMPORARY_DMG}"
+"${RELEASE_CONTENT_CHECK}" --dmg "${TEMPORARY_DMG}"
 mv -f "${TEMPORARY_DMG}" "${OUTPUT_DMG}"
 TEMPORARY_DMG=""
 rmdir "${TEMPORARY_DMG_DIRECTORY}"

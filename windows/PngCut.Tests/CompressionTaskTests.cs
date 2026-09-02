@@ -100,6 +100,23 @@ public class CompressionTaskTests
         Assert.That(task.SelectedFolderRoot, Is.EqualTo(@"C:\in"));
     }
 
+    [Test]
+    public void Fail_stores_a_stable_failure_code_and_catalog_message()
+    {
+        var task = NewTask();
+        task.StartProcessing();
+
+        task.Fail(FailureCode.EngineFailed);
+
+        Assert.That(task.State, Is.EqualTo(TaskState.Failed));
+        Assert.That(task.ErrorCode, Is.EqualTo(FailureCode.EngineFailed));
+        Assert.That(task.ErrorMessage, Is.EqualTo("压缩程序执行失败。"));
+
+        task.Retry();
+        Assert.That(task.ErrorCode, Is.Null);
+        Assert.That(task.ErrorMessage, Is.Null);
+    }
+
     private static CompressionTask NewTask() => new(
         @"C:\in\photo.png",
         ImageFormat.Png,

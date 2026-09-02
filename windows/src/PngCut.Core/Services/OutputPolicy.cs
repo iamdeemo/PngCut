@@ -32,7 +32,7 @@ public static class OutputPolicy
 
         return Path.Combine(
             DirectoryOf(sourcePath),
-            Path.GetFileNameWithoutExtension(sourcePath) + "_pngcut" + Path.GetExtension(sourcePath));
+            Path.GetFileNameWithoutExtension(sourcePath) + "_pngcut" + Path.GetExtension(sourcePath).ToLowerInvariant());
     }
 
     public static string ForFolderImport(string selectedFolderRoot, string sourcePath)
@@ -75,12 +75,9 @@ public static class OutputPolicy
                 finalPath = ReserveAvailable(finalPath, reservedFinalPaths);
                 break;
             case OutputMode.Custom:
-                if (string.IsNullOrWhiteSpace(customDirectory))
-                {
-                    throw new ArgumentException("A custom output directory is required.", nameof(customDirectory));
-                }
+                var directory = ExistingCustomDirectory(customDirectory);
                 finalPath = ReserveAvailable(
-                    Path.Combine(customDirectory, Path.GetFileName(ForSingleFile(sourcePath))),
+                    Path.Combine(directory, Path.GetFileName(ForSingleFile(sourcePath))),
                     reservedFinalPaths);
                 break;
             case OutputMode.Overwrite:
@@ -141,6 +138,16 @@ public static class OutputPolicy
         }
 
         return directory;
+    }
+
+    private static string ExistingCustomDirectory(string? customDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(customDirectory) || !Directory.Exists(customDirectory))
+        {
+            throw new ArgumentException("The custom output directory must exist.", nameof(customDirectory));
+        }
+
+        return customDirectory;
     }
 
     private static string NormalizeSelectedFolderRoot(string path)

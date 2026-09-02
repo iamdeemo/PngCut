@@ -7,12 +7,20 @@ set -euo pipefail
 readonly SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIRECTORY="$(cd "${SCRIPT_DIRECTORY}/.." && pwd)"
 readonly CHECK_SCRIPT="${SCRIPT_DIRECTORY}/check-release-content.sh"
-readonly DMG_PATH="${1:-${PROJECT_DIRECTORY}/dist/PngCut-1.0.dmg}"
+readonly RELEASE_INFO_PLIST="${PROJECT_DIRECTORY}/.build/DerivedData-Release/Build/Products/Release/pngcut.app/Contents/Info.plist"
 
 fail() {
     echo "DMG cleanup check failed: $*" >&2
     exit 1
 }
+
+if [[ -n "${1:-}" ]]; then
+    readonly DMG_PATH="$1"
+else
+    [[ -f "${RELEASE_INFO_PLIST}" ]] || fail "missing Release app Info.plist; run create-dmg.sh first or pass a DMG path"
+    readonly VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${RELEASE_INFO_PLIST}")"
+    readonly DMG_PATH="${PROJECT_DIRECTORY}/dist/PngCut-${VERSION}.dmg"
+fi
 
 is_attached() {
     hdiutil info | rg -F -q "${DMG_PATH}"

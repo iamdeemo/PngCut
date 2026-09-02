@@ -64,6 +64,16 @@ final class FileDiscoveryTests: XCTestCase {
         XCTAssertEqual(result.skippedNonImageCount, 1)
     }
 
+    func testDiscoverFindsGIFsIgnoringExtensionCase() throws {
+        let animation = try makeFile("animation.GiF", in: directory)
+
+        let result = FileDiscovery().discover(urls: [animation])
+
+        XCTAssertEqual(result.files, [animation.standardizedFileURL])
+        XCTAssertEqual(result.images.map(\.format), [.gif])
+        XCTAssertEqual(result.skippedNonImageCount, 0)
+    }
+
     func testCompressionTaskDefaultsToLosslessDisplayMode() {
         let task = CompressionTask(sourceURL: directory.appendingPathComponent("image.png"))
 

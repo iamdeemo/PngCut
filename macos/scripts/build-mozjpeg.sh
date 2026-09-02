@@ -3,14 +3,22 @@
 # Builds static MozJPEG-backed helper binaries for both macOS architectures.
 set -euo pipefail
 
-readonly VERSION="v4.1.5"
 readonly REPOSITORY="https://github.com/mozilla/mozjpeg.git"
 readonly SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIRECTORY="$(cd "${SCRIPT_DIRECTORY}/.." && pwd)"
+readonly CONTRACT_MANIFEST="${PROJECT_DIRECTORY}/../shared/contracts/v1/engine-manifest.json"
 readonly CHECKOUT_DIRECTORY="${PROJECT_DIRECTORY}/.build/mozjpeg"
 readonly LOCK_DIRECTORY="${PROJECT_DIRECTORY}/.build/mozjpeg-build.lock"
 readonly RESOURCE_DIRECTORY="${PROJECT_DIRECTORY}/PngCut/Resources/mozjpeg"
 readonly HELPER_SOURCE="${RESOURCE_DIRECTORY}/mozjpeg-helper.c"
+
+manifest_value() {
+    local engine_key="$1"
+    local field_key="$2"
+    plutil -extract "engines.${engine_key}.${field_key}" raw "${CONTRACT_MANIFEST}"
+}
+
+readonly VERSION="$(manifest_value mozjpeg macosTag)"
 
 require_tool() {
     command -v "$1" >/dev/null || { echo "Missing required build tool: $1" >&2; exit 1; }

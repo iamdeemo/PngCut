@@ -53,6 +53,41 @@ struct MainWindowView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             acceptDrop(providers)
         }
+        .alert(item: importPromptBinding) { prompt in
+            switch prompt {
+            case .convertSequences:
+                Alert(
+                    title: Text("发现 PNG 序列"),
+                    message: Text(prompt.message),
+                    primaryButton: .default(Text("转 GIF")) {
+                        model.resolvePendingImport(convertSequence: true)
+                    },
+                    secondaryButton: .cancel(Text("常规压缩")) {
+                        model.resolvePendingImport(convertSequence: false)
+                    }
+                )
+            case .compressWithoutSequence:
+                Alert(
+                    title: Text("未发现 PNG 序列"),
+                    message: Text("是否按常规方式压缩当前文件？"),
+                    primaryButton: .default(Text("压缩")) {
+                        model.resolvePendingImport(compressInstead: true)
+                    },
+                    secondaryButton: .cancel(Text("不压缩")) {
+                        model.resolvePendingImport(compressInstead: false)
+                    }
+                )
+            }
+        }
+        .alert(item: importNoticeBinding) { notice in
+            Alert(
+                title: Text("无法转 GIF"),
+                message: Text(notice.message),
+                dismissButton: .default(Text("好")) {
+                    model.dismissImportNotice()
+                }
+            )
+        }
     }
 
     private var workspace: some View {
@@ -156,13 +191,13 @@ struct MainWindowView: View {
 
     private func chooseFiles() {
         let panel = NSOpenPanel()
-        panel.title = "选择 PNG/JPG 文件或文件夹"
-        panel.message = "请选择要压缩的 PNG/JPG 文件或文件夹"
+        panel.title = "选择 PNG/JPG/GIF 文件或文件夹"
+        panel.message = "请选择要压缩的 PNG/JPG/GIF 文件或文件夹"
         panel.prompt = "选择"
         panel.canChooseFiles = true
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.png, .jpeg, .folder]
+        panel.allowedContentTypes = [.png, .jpeg, .gif, .folder]
         panel.begin { response in
             guard response == .OK else { return }
             model.add(urls: panel.urls)
@@ -198,6 +233,34 @@ struct MainWindowView: View {
         }
         return !providers.isEmpty
     }
+
+    private var importPromptBinding: Binding<ImportPrompt?> {
+        Binding(
+            get: { model.pendingImportPrompt },
+            set: { prompt in
+                guard prompt == nil else { return }
+                switch model.pendingImportPrompt {
+                case .convertSequences:
+                    model.resolvePendingImport(convertSequence: false)
+                case .compressWithoutSequence:
+                    model.resolvePendingImport(compressInstead: false)
+                case nil:
+                    break
+                }
+            }
+        )
+    }
+
+    private var importNoticeBinding: Binding<ImportNotice?> {
+        Binding(
+            get: { model.importNotice },
+            set: { notice in
+                if notice == nil {
+                    model.dismissImportNotice()
+                }
+            }
+        )
+    }
 }
 
 private struct EmptyDropView: View {
@@ -215,7 +278,7 @@ private struct EmptyDropView: View {
                 .frame(width: 48, height: 48)
                 .foregroundStyle(accent)
                 .accessibilityHidden(true)
-            Text("拖入 PNG/JPG 文件或文件夹")
+            Text("拖入 PNG/JPG/GIF 文件或文件夹")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.primary)
             Button("选择文件", action: chooseFiles)

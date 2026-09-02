@@ -46,7 +46,10 @@ struct MozJPEGCompressor: ImageCompressor, Sendable {
         )
         guard result.status == 0 else {
             let detail = result.standardError.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw CompressionFailure.localExecution(detail.isEmpty ? "MozJPEG exited with status \(result.status)." : detail)
+            throw CompressionFailure(
+                code: .engineFailed,
+                technicalMessage: detail.isEmpty ? "MozJPEG exited with status \(result.status)." : detail
+            )
         }
         try LocalProcessRunner.validateNonEmptyRegularFile(
             at: temporaryDestination,

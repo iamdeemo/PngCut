@@ -21,4 +21,12 @@
     <ProjectReference Include="..\\src\\PngCut.Engine\\PngCut.Engine.csproj" />
     <ProjectReference Include="..\\src\\PngCut.Desktop\\PngCut.Desktop.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Web.Extensions" />
+    <None Include="..\\..\\shared\\contracts\\v1\\*.json">
+      <Link>Contracts\\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

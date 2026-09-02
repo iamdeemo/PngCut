@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "engines": {
+    "oxipng": {
+      "version": "10.2.0",
+      "macosTag": "v10.2.0",
+      "sourceRevision": "340cd9878d8d8289f09fa101b48a8f5f0b7783f4",
+      "upstream": "https://github.com/oxipng/oxipng",
+      "license": "MIT"
+    },
+    "pngquant": {
+      "version": "3.0.3",
+      "macosTag": "3.0.3",
+      "sourceRevision": "53a332a58f44357b6b41842a54d74aa1e245913d",
+      "upstream": "https://github.com/kornelski/pngquant",
+      "license": "GPL-3.0-or-later"
+    },
+    "mozjpeg": {
+      "version": "4.1.5",
+      "macosTag": "v4.1.5",
+      "sourceRevision": "6c9f0897afa1c2738d7222a0a9ab49e8b536a267",
+      "upstream": "https://github.com/mozilla/mozjpeg",
+      "license": "IJG-BSD-zlib"
+    }
+  }
+}

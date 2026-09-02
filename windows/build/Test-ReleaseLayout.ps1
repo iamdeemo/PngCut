@@ -4,6 +4,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$contractManifestPath = Join-Path $PSScriptRoot '..\..\shared\contracts\v1\engine-manifest.json'
+$contractManifest = Get-Content $contractManifestPath -Raw | ConvertFrom-Json
+foreach ($engine in 'oxipng', 'pngquant', 'mozjpeg') {
+    if ([string]::IsNullOrWhiteSpace($contractManifest.engines.$engine.version)) {
+        throw "Shared manifest is missing $engine version."
+    }
+}
+
 $resolvedZip = (Resolve-Path -LiteralPath $ZipPath).Path
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ("pngcut-release-" + [guid]::NewGuid().ToString('N'))
 $expectedArchitecture = if ($resolvedZip -match 'x86') { 'x86' } elseif ($resolvedZip -match 'x64') { 'x64' } else { $null }

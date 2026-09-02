@@ -5,12 +5,29 @@ actor CompressionQueue {
 
     struct WorkItem {
         let task: CompressionTask
-        let compressor: any ImageCompressor
+        let operation: CompressionOperation
+
+        init(task: CompressionTask, compressor: any ImageCompressor) {
+            self.init(task: task, operation: .file(compressor))
+        }
+
+        init(task: CompressionTask, operation: CompressionOperation) {
+            self.task = task
+            self.operation = operation
+        }
+
+        /// Compatibility bridge for callers that still construct file-only work.
+        var compressor: any ImageCompressor {
+            guard case .file(let compressor) = operation else {
+                preconditionFailure("A PNG-sequence operation has no file compressor.")
+            }
+            return compressor
+        }
     }
 
     private struct QueuedTask {
         var task: CompressionTask
-        var compressor: any ImageCompressor
+        let operation: CompressionOperation
     }
 
     private let defaultCompressor: any ImageCompressor
@@ -33,7 +50,7 @@ actor CompressionQueue {
             var task = workItem.task
             task.state = .queued
             task.progress = 0
-            return QueuedTask(task: task, compressor: workItem.compressor)
+            return QueuedTask(task: task, operation: workItem.operation)
         })
         await publish()
         startWorkerIfNeeded()
@@ -45,7 +62,7 @@ actor CompressionQueue {
 
     func recordFailed(_ workItems: [WorkItem]) async {
         queuedTasks.append(contentsOf: workItems.map { workItem in
-            QueuedTask(task: workItem.task, compressor: workItem.compressor)
+            QueuedTask(task: workItem.task, operation: workItem.operation)
         })
         guard !workItems.isEmpty else { return }
         await publish()
@@ -53,7 +70,7 @@ actor CompressionQueue {
 
     func retryFailed() async {
         var didResetTask = false
-        for index in queuedTasks.indices where queuedTasks[index].task.state.isFailed {
+        for index in queuedTasks.indices where queuedTasks[index].task.state.isFailed && queuedTasks[index].task.isRetryable {
             queuedTasks[index].task.state = .queued
             queuedTasks[index].task.progress = 0
             didResetTask = true
@@ -100,7 +117,10 @@ actor CompressionQueue {
             let task = queuedTask.task
             let queue = self
             guard let finalURL = task.outputURL, let temporaryURL = task.temporaryOutputURL else {
-                queuedTasks[taskIndex].task.state = .failed(.outputValidation("The task is missing an output destination."))
+                queuedTasks[taskIndex].task.state = .failed(CompressionFailure(
+                    code: .outputPolicyInvalid,
+                    technicalMessage: "The task is missing an output destination."
+                ))
                 await publish()
                 continue
             }
@@ -110,8 +130,8 @@ actor CompressionQueue {
                     at: temporaryURL.deletingLastPathComponent(),
                     withIntermediateDirectories: true
                 )
-                let outcome = try await queuedTask.compressor.compress(
-                    source: task.sourceURL,
+                let outcome = try await queuedTask.operation.run(
+                    task: task,
                     temporaryDestination: temporaryURL,
                     progress: { [queue, taskID = task.id] progress in
                         Task {
@@ -140,9 +160,24 @@ actor CompressionQueue {
             } catch let failure as CompressionFailure {
                 removeTemporaryOutput(at: temporaryURL)
                 queuedTasks[taskIndex].task.state = .failed(failure)
+            } catch let error as OutputPolicyError {
+                removeTemporaryOutput(at: temporaryURL)
+                let code: FailureCode
+                if case .destinationAlreadyExists = error {
+                    code = .outputConflict
+                } else {
+                    code = .outputPolicyInvalid
+                }
+                queuedTasks[taskIndex].task.state = .failed(CompressionFailure(
+                    code: code,
+                    technicalMessage: error.localizedDescription
+                ))
             } catch {
                 removeTemporaryOutput(at: temporaryURL)
-                queuedTasks[taskIndex].task.state = .failed(.localExecution(error.localizedDescription))
+                queuedTasks[taskIndex].task.state = .failed(CompressionFailure(
+                    code: .engineFailed,
+                    technicalMessage: error.localizedDescription
+                ))
             }
 
             await publish()
@@ -164,10 +199,16 @@ actor CompressionQueue {
     private func validateTemporaryOutput(at url: URL) throws {
         let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
         guard values.isRegularFile == true else {
-            throw CompressionFailure.outputValidation("The compressor did not create an output file.")
+            throw CompressionFailure(
+                code: .outputInvalid,
+                technicalMessage: "The compressor did not create an output file."
+            )
         }
         guard (values.fileSize ?? 0) > 0 else {
-            throw CompressionFailure.outputValidation("The compressor created an empty output file.")
+            throw CompressionFailure(
+                code: .outputInvalid,
+                technicalMessage: "The compressor created an empty output file."
+            )
         }
     }
 

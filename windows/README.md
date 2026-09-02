@@ -28,13 +28,7 @@ dotnet test .\PngCut.Tests\PngCut.Tests.csproj -c Debug -p:Platform=x64 --filter
 
 ## 引擎来源与可复核信息
 
-当前资源使用以下固定版本构建：
-
-| 引擎 | 版本 | 上游提交 |
-|---|---:|---|
-| oxipng | 10.2.0 | `340cd9878d8d8289f09fa101b48a8f5f0b7783f4` |
-| pngquant | 3.0.3 | `53a332a58f44357b6b41842a54d74aa1e245913d` |
-| MozJPEG | 4.1.5 | `6c9f0897afa1c2738d7222a0a9ab49e8b536a267` |
+各引擎的固定版本、上游提交、标签和许可证标识以仓库的[共享引擎清单](../shared/contracts/v1/engine-manifest.json)为准；Windows ZIP 仍保留本平台的二进制哈希和许可证目录校验。
 
 发布前可使用 `Get-FileHash -Algorithm SHA256` 复核随仓库提交的 Windows 二进制。当前构建资源的哈希如下：
 

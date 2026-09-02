@@ -40,6 +40,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Test macOS core and shared contracts
+        run: >-
+          xcodebuild -project macos/PngCut.xcodeproj -scheme PngCut
+          -destination 'platform=macOS'
+          -only-testing:PngCutTests test
       - name: Build DMG
         run: ./macos/scripts/create-dmg.sh
       - uses: actions/upload-artifact@v4

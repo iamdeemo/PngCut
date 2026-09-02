@@ -76,6 +76,48 @@ struct OutputPlanner {
         return prepared
     }
 
+    mutating func prepareGeneratedGIF(
+        representativeSource: URL,
+        outputFileName: String,
+        importedFolderRoot: URL? = nil
+    ) throws -> PreparedOutput {
+        let sourceURL = representativeSource.standardizedFileURL
+        let outputDirectory: URL
+
+        switch policy {
+        case .adjacent, .overwrite:
+            if let importedFolderRoot,
+               let destination = try folderDestination(for: sourceURL, importedFolderRoot: importedFolderRoot) {
+                outputDirectory = destination.deletingLastPathComponent()
+            } else {
+                outputDirectory = sourceURL.deletingLastPathComponent()
+            }
+        case .customDirectory:
+            guard let customDirectory else {
+                throw OutputPolicyError.customDirectoryRequired
+            }
+
+            let directory = customDirectory.standardizedFileURL
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) else {
+                throw OutputPolicyError.customDirectoryDoesNotExist(directory)
+            }
+            guard isDirectory.boolValue else {
+                throw OutputPolicyError.customDestinationIsNotDirectory(directory)
+            }
+            outputDirectory = directory
+        }
+
+        let finalURL = availableGeneratedGIFURL(in: outputDirectory, outputFileName: outputFileName)
+        let prepared = PreparedOutput(
+            finalURL: finalURL,
+            temporaryURL: temporarySibling(of: finalURL),
+            allowsReplacingExistingFile: false
+        )
+        reservedFinalURLs.insert(prepared.finalURL)
+        return prepared
+    }
+
     private mutating func folderDestination(for source: URL, importedFolderRoot: URL) throws -> URL? {
         let root = importedFolderRoot.standardizedFileURL
         let rootComponents = root.pathComponents
@@ -117,6 +159,33 @@ struct OutputPlanner {
                 ? "\(baseName).\(sourceExtension)"
                 : "\(baseName)-\(suffix).\(sourceExtension)"
             let candidate = directory.appendingPathComponent(filename).standardizedFileURL
+            if !reservedDestinationKeys.contains(destinationKey(for: candidate)), !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            suffix += 1
+        }
+    }
+
+    private func availableGeneratedGIFURL(
+        in directory: URL,
+        outputFileName: String
+    ) -> URL {
+        let filename = (outputFileName as NSString).lastPathComponent
+        let extensionName = (filename as NSString).pathExtension
+        let baseName = (filename as NSString).deletingPathExtension
+        let reservedDestinationKeys = Set(reservedFinalURLs.map(destinationKey(for:)))
+        var suffix = 1
+
+        while true {
+            let candidateName: String
+            if suffix == 1 {
+                candidateName = filename
+            } else if extensionName.isEmpty {
+                candidateName = "\(baseName)-\(suffix)"
+            } else {
+                candidateName = "\(baseName)-\(suffix).\(extensionName)"
+            }
+            let candidate = directory.appendingPathComponent(candidateName).standardizedFileURL
             if !reservedDestinationKeys.contains(destinationKey(for: candidate)), !FileManager.default.fileExists(atPath: candidate.path) {
                 return candidate
             }

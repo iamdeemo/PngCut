@@ -60,7 +60,7 @@ struct OxipngCompressor: ImageCompressor, Sendable {
             let message = detail.isEmpty
                 ? "oxipng exited with status \(result.status)."
                 : detail
-            throw CompressionFailure.localExecution(message)
+            throw CompressionFailure(code: .engineFailed, technicalMessage: message)
         }
 
         try LocalProcessRunner.validateNonEmptyRegularFile(

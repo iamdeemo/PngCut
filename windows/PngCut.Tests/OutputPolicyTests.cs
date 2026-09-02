@@ -10,11 +10,11 @@ namespace PngCut.Tests;
 public class OutputPolicyTests
 {
     [Test]
-    public void ForSingleFile_adds_pngcut_suffix_and_preserves_original_extension()
+    public void ForSingleFile_adds_pngcut_suffix_and_normalizes_the_extension()
     {
         var path = OutputPolicy.ForSingleFile(@"D:\art\logo.JPG");
 
-        Assert.That(path, Is.EqualTo(@"D:\art\logo_pngcut.JPG"));
+        Assert.That(path, Is.EqualTo(@"D:\art\logo_pngcut.jpg"));
     }
 
     [Test]
@@ -90,17 +90,29 @@ public class OutputPolicyTests
     }
 
     [Test]
-    public void Prepare_custom_preserves_pngcut_suffix_without_creating_the_destination_directory()
+    public void Prepare_custom_rejects_a_missing_directory()
     {
         var root = Path.Combine(Path.GetTempPath(), "PngCut-OutputPolicy-" + Guid.NewGuid());
-        var source = Path.Combine(root, "banner.png");
-        var custom = Path.Combine(root, "custom");
+        Assert.That(
+            () => OutputPolicy.Prepare(Path.Combine(root, "banner.png"), OutputMode.Custom, Path.Combine(root, "custom")),
+            Throws.TypeOf<ArgumentException>());
+    }
 
-        var prepared = OutputPolicy.Prepare(source, OutputMode.Custom, customDirectory: custom);
+    [Test]
+    public void Prepare_custom_uses_an_existing_directory()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "PngCut-OutputPolicy-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var prepared = OutputPolicy.Prepare(Path.Combine(directory, "logo.JPG"), OutputMode.Custom, directory);
 
-        Assert.That(prepared.FinalPath, Is.EqualTo(Path.Combine(custom, "banner_pngcut.png")));
-        Assert.That(Directory.Exists(custom), Is.False);
-        Assert.That(File.Exists(prepared.FinalPath), Is.False);
+            Assert.That(prepared.FinalPath, Is.EqualTo(Path.Combine(directory, "logo_pngcut.jpg")));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
     }
 
     [Test]
@@ -124,8 +136,8 @@ public class OutputPolicyTests
             OutputMode.Adjacent,
             reservedFinalPaths: new[] { existing[0], second.FinalPath });
 
-        Assert.That(second.FinalPath, Is.EqualTo(@"D:\out\logo_pngcut-2.JPG"));
-        Assert.That(third.FinalPath, Is.EqualTo(@"D:\out\logo_pngcut-3.JPG"));
+        Assert.That(second.FinalPath, Is.EqualTo(@"D:\out\logo_pngcut-2.jpg"));
+        Assert.That(third.FinalPath, Is.EqualTo(@"D:\out\logo_pngcut-3.jpg"));
     }
 
     [Test]
@@ -155,13 +167,22 @@ public class OutputPolicyTests
     [Test]
     public void Prepare_custom_reserves_case_insensitive_collisions()
     {
-        var prepared = OutputPolicy.Prepare(
-            @"D:\art\logo.JPG",
-            OutputMode.Custom,
-            customDirectory: @"D:\exports",
-            reservedFinalPaths: new[] { @"D:\EXPORTS\LOGO_PNGCUT.jpg" });
+        var directory = Path.Combine(Path.GetTempPath(), "PngCut-OutputPolicy-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var prepared = OutputPolicy.Prepare(
+                Path.Combine(directory, "logo.JPG"),
+                OutputMode.Custom,
+                customDirectory: directory,
+                reservedFinalPaths: new[] { Path.Combine(directory, "LOGO_PNGCUT.jpg") });
 
-        Assert.That(prepared.FinalPath, Is.EqualTo(@"D:\exports\logo_pngcut-2.JPG"));
+            Assert.That(prepared.FinalPath, Is.EqualTo(Path.Combine(directory, "logo_pngcut-2.jpg")));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
     }
 
     [Test]

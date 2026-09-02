@@ -4,15 +4,23 @@
 # .build so repeatable builds do not depend on a globally installed oxipng.
 set -euo pipefail
 
-readonly VERSION="v10.2.0"
 readonly REPOSITORY="https://github.com/oxipng/oxipng.git"
 readonly SCRIPT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIRECTORY="$(cd "${SCRIPT_DIRECTORY}/.." && pwd)"
+readonly CONTRACT_MANIFEST="${PROJECT_DIRECTORY}/../shared/contracts/v1/engine-manifest.json"
 readonly CHECKOUT_DIRECTORY="${PROJECT_DIRECTORY}/.build/oxipng"
 readonly LOCK_DIRECTORY="${PROJECT_DIRECTORY}/.build/oxipng-build.lock"
 readonly RESOURCE_DIRECTORY="${PROJECT_DIRECTORY}/PngCut/Resources/oxipng"
 readonly ARM_TARGET="aarch64-apple-darwin"
 readonly INTEL_TARGET="x86_64-apple-darwin"
+
+manifest_value() {
+    local engine_key="$1"
+    local field_key="$2"
+    plutil -extract "engines.${engine_key}.${field_key}" raw "${CONTRACT_MANIFEST}"
+}
+
+readonly VERSION="$(manifest_value oxipng macosTag)"
 
 require_clean_checkout() {
     if [[ -n "$(git -C "${CHECKOUT_DIRECTORY}" status --porcelain)" ]]; then

@@ -72,4 +72,17 @@ final class PngCutUITests: XCTestCase {
         XCTAssertEqual(app.textFields.matching(identifier: "tinifyAPIKeyField").count, 0)
         XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Tinify")).count, 0)
     }
+
+    func testSettingsDrawerOffersGIFControls() {
+        app.buttons["settingsButton"].tap()
+
+        XCTAssertTrue(app.checkBoxes["pngSequenceGIFEnabled"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["gifFrameRate20"].exists)
+        XCTAssertTrue(app.buttons["gifFrameRate25"].exists)
+        XCTAssertTrue(app.buttons["gifFrameRate30"].exists)
+        XCTAssertTrue(app.buttons["gifFrameRateCustom"].exists)
+        XCTAssertTrue(app.textFields["gifCustomFrameRate"].exists)
+        XCTAssertTrue(app.buttons["gifLoopForever"].exists)
+        XCTAssertTrue(app.buttons["gifLoopOnce"].exists)
+    }
 }

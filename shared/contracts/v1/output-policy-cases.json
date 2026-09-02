@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "adjacent-normalizes-extension",
+      "platforms": ["all"],
+      "policy": "adjacent",
+      "source": "import/banner.PNG",
+      "expected": "import/banner_pngcut.png"
+    },
+    {
+      "id": "folder-preserves-relative-source-name",
+      "platforms": ["all"],
+      "policy": "adjacent",
+      "selectedFolder": "import/project",
+      "source": "import/project/icons/Logo.JPG",
+      "expected": "import/project_pngcut/icons/Logo.JPG"
+    },
+    {
+      "id": "adjacent-collision-uses-two",
+      "platforms": ["all"],
+      "policy": "adjacent",
+      "source": "import/logo.png",
+      "existingOutputs": ["import/logo_pngcut.png"],
+      "expected": "import/logo_pngcut-2.png"
+    },
+    {
+      "id": "overwrite-keeps-source",
+      "platforms": ["all"],
+      "policy": "overwrite",
+      "source": "import/logo.JPG",
+      "expected": "import/logo.JPG"
+    },
+    {
+      "id": "custom-requires-existing-directory",
+      "platforms": ["all"],
+      "policy": "custom",
+      "source": "import/logo.png",
+      "customDirectory": "missing-output",
+      "expectedError": "output_policy_invalid"
+    },
+    {
+      "id": "windows-unc-share-root",
+      "platforms": ["windows"],
+      "policy": "adjacent",
+      "selectedFolder": "\\\\server\\share\\",
+      "source": "\\\\server\\share\\icons\\logo.JPG",
+      "expected": "\\\\server\\share\\_pngcut\\icons\\logo.JPG"
+    }
+  ]
+}

@@ -16,13 +16,20 @@ struct TaskRowView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(task.sourceURL.lastPathComponent)
+                Text(task.displayName)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                 Text("压缩方式：\(task.displayMode.title)")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                taskDetail
+                if let sequenceFrameCount {
+                    Text("\(sequenceFrameCount) 张 PNG · \(sourceSize)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                if sequenceFrameCount == nil || task.state.isFailed || task.state == .completed {
+                    taskDetail
+                }
                 if task.state == .processing {
                     ProgressView(value: task.progress)
                         .tint(accent)
@@ -42,7 +49,7 @@ struct TaskRowView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 7))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(task.sourceURL.lastPathComponent)，\(task.displayMode.title)")
+        .accessibilityLabel("\(task.displayName)，\(task.displayMode.title)")
         .accessibilityValue("压缩引擎：\(task.engine.rawValue)")
     }
 
@@ -87,24 +94,43 @@ struct TaskRowView: View {
                     .foregroundStyle(accent)
             }
         case .failed:
-            Button("重试", action: retry)
-                .buttonStyle(.borderless)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(accent)
+            if task.isRetryable {
+                Button("重试", action: retry)
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(accent)
+            } else {
+                Text("无法转换")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.red)
+            }
         }
     }
 
-    private var sourceSize: String {
-        let byteCount: Int64
-        if task.state == .completed {
-            byteCount = task.originalFileSize ?? 0
-        } else {
-            byteCount = task.originalFileSize ?? fileSize(at: task.sourceURL)
+    private var sequenceFrameCount: Int? {
+        guard case let .pngSequence(frameCount) = task.inputKind else {
+            return nil
         }
+        return frameCount
+    }
+
+    private var sourceSize: String {
         return ByteCountFormatter.string(
-            fromByteCount: byteCount,
+            fromByteCount: sourceByteCount,
             countStyle: .file
         )
+    }
+
+    private var sourceByteCount: Int64 {
+        if let originalFileSize = task.originalFileSize {
+            return originalFileSize
+        }
+        if sequenceFrameCount != nil {
+            return task.sourceURLs.reduce(into: 0) { total, sourceURL in
+                total += fileSize(at: sourceURL)
+            }
+        }
+        return fileSize(at: task.sourceURL)
     }
 
     private var sizeSummary: String {
@@ -125,8 +151,6 @@ struct TaskRowView: View {
     }
 
     private func message(for failure: CompressionFailure) -> String {
-        switch failure {
-        case let .localExecution(message), let .outputValidation(message): message
-        }
+        FailureCatalog.message(for: failure.code)
     }
 }

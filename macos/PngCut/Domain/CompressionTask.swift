@@ -4,11 +4,22 @@ enum CompressionEngine: String, Equatable, Sendable {
     case oxipng
     case pngquant
     case mozjpeg
+    case gifsicle
+    case gifski
+}
+
+enum CompressionTaskInputKind: Equatable, Sendable {
+    case file
+    case pngSequence(frameCount: Int)
 }
 
 struct CompressionTask: Identifiable, Equatable {
     let id: UUID
     let sourceURL: URL
+    let sourceURLs: [URL]
+    let displayName: String
+    let inputKind: CompressionTaskInputKind
+    let isRetryable: Bool
     let format: ImageFormat
     let engine: CompressionEngine
     let displayMode: CompressionMode
@@ -27,6 +38,10 @@ struct CompressionTask: Identifiable, Equatable {
     init(
         id: UUID = UUID(),
         sourceURL: URL,
+        sourceURLs: [URL]? = nil,
+        displayName: String? = nil,
+        inputKind: CompressionTaskInputKind = .file,
+        isRetryable: Bool = true,
         outputURL: URL? = nil,
         temporaryOutputURL: URL? = nil,
         allowsReplacingExistingOutput: Bool = true,
@@ -40,6 +55,10 @@ struct CompressionTask: Identifiable, Equatable {
     ) {
         self.id = id
         self.sourceURL = sourceURL.standardizedFileURL
+        self.sourceURLs = (sourceURLs ?? [sourceURL]).map(\.standardizedFileURL)
+        self.displayName = displayName ?? sourceURL.lastPathComponent
+        self.inputKind = inputKind
+        self.isRetryable = isRetryable
         self.format = format ?? ImageFormat(url: sourceURL) ?? .png
         self.engine = engine
         self.displayMode = displayMode

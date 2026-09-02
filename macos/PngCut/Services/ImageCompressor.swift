@@ -13,9 +13,39 @@ enum CompressionOutcome: Equatable, Sendable {
     case noChange
 }
 
-enum CompressionFailure: Error, Equatable, Sendable {
-    case localExecution(String)
-    case outputValidation(String)
+enum CompressionOperation: Sendable {
+    case file(any ImageCompressor)
+    case pngSequence(any GifskiSequenceEncoding, quality: Int, frameRate: Int, loop: GIFLoop)
+
+    func run(
+        task: CompressionTask,
+        temporaryDestination: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws -> CompressionOutcome {
+        switch self {
+        case .file(let compressor):
+            return try await compressor.compress(
+                source: task.sourceURL,
+                temporaryDestination: temporaryDestination,
+                progress: progress
+            )
+        case let .pngSequence(encoder, quality, frameRate, loop):
+            try await encoder.encode(
+                frames: task.sourceURLs,
+                temporaryDestination: temporaryDestination,
+                quality: quality,
+                frameRate: frameRate,
+                loop: loop,
+                progress: progress
+            )
+            return .compressed
+        }
+    }
+}
+
+struct CompressionFailure: Error, Equatable, Sendable {
+    let code: FailureCode
+    let technicalMessage: String?
 }
 
 enum BundledExecutableArchitecture: String, Sendable, Equatable {
@@ -54,7 +84,10 @@ struct BundledExecutableResolver: Sendable {
         let name = "\(executableBaseName)-\(architecture.rawValue)"
         let url = resourceDirectory.appendingPathComponent(name, isDirectory: false)
         guard FileManager.default.isExecutableFile(atPath: url.path) else {
-            throw CompressionFailure.localExecution("Bundled \(name) executable is unavailable.")
+            throw CompressionFailure(
+                code: .engineUnavailable,
+                technicalMessage: "Bundled \(name) executable is unavailable."
+            )
         }
         return url
     }
@@ -80,7 +113,10 @@ enum LocalProcessRunner {
         } catch {
             standardError.fileHandleForWriting.closeFile()
             _ = capture.finish()
-            throw CompressionFailure.localExecution("Unable to start \(toolName): \(error.localizedDescription)")
+            throw CompressionFailure(
+                code: .engineFailed,
+                technicalMessage: "Unable to start \(toolName): \(error.localizedDescription)"
+            )
         }
 
         process.waitUntilExit()
@@ -92,13 +128,13 @@ enum LocalProcessRunner {
         do {
             values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
         } catch {
-            throw CompressionFailure.outputValidation(missingMessage)
+            throw CompressionFailure(code: .outputInvalid, technicalMessage: missingMessage)
         }
         guard values.isRegularFile == true else {
-            throw CompressionFailure.outputValidation(missingMessage)
+            throw CompressionFailure(code: .outputInvalid, technicalMessage: missingMessage)
         }
         guard (values.fileSize ?? 0) > 0 else {
-            throw CompressionFailure.outputValidation(emptyMessage)
+            throw CompressionFailure(code: .outputInvalid, technicalMessage: emptyMessage)
         }
     }
 }

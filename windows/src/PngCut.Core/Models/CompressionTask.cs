@@ -1,4 +1,5 @@
 using System;
+using PngCut.Core.Services;
 
 namespace PngCut.Core.Models;
 
@@ -40,6 +41,8 @@ public sealed class CompressionTask
     public TaskState State { get; private set; }
 
     public string? ErrorMessage { get; private set; }
+
+    public FailureCode? ErrorCode { get; private set; }
 
     public long? OriginalBytes { get; private set; }
 
@@ -84,16 +87,18 @@ public sealed class CompressionTask
 
         State = TaskState.Processing;
         ErrorMessage = null;
+        ErrorCode = null;
     }
 
-    public void Fail(string errorMessage)
+    public void Fail(FailureCode code)
     {
         if (State != TaskState.Processing)
         {
             throw new InvalidOperationException("Only processing tasks can fail.");
         }
 
-        ErrorMessage = errorMessage ?? throw new ArgumentNullException(nameof(errorMessage));
+        ErrorCode = code;
+        ErrorMessage = FailureCatalog.Message(code);
         State = TaskState.Failed;
     }
 
@@ -105,6 +110,7 @@ public sealed class CompressionTask
         }
 
         ErrorMessage = null;
+        ErrorCode = null;
         State = TaskState.Queued;
     }
 }

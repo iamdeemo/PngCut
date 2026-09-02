@@ -312,6 +312,7 @@ public sealed class TaskRowViewModel : INotifyPropertyChanged
 
     public string DetailText => Model.State switch
     {
+        TaskState.Failed when Model.ErrorCode.HasValue => FailureCatalog.Message(Model.ErrorCode.Value),
         TaskState.Failed => Model.ErrorMessage ?? "压缩失败。",
         TaskState.Completed => FormatBytes(Model.OriginalBytes ?? 0) + " → " + FormatBytes(Model.CompressedBytes ?? 0),
         _ => FormatBytes(ReadSourceBytes())

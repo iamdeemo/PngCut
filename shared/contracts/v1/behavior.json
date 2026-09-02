@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "formats": ["png", "jpeg"],
+  "modes": ["lossless", "balanced"],
+  "engines": {
+    "oxipng": { "format": "png", "mode": "lossless" },
+    "pngquant": { "format": "png", "mode": "balanced" },
+    "mozjpeg": { "format": "jpeg", "mode": "balanced" }
+  },
+  "taskStates": ["queued", "processing", "completed", "failed"],
+  "retryableState": "failed",
+  "pngquantNoChangeExitCodes": [98, 99],
+  "output": {
+    "suffix": "_pngcut",
+    "directOutputExtension": "lowercase",
+    "customDirectory": "must-exist-directory",
+    "collisionFirstSuffix": 2,
+    "folderOutput": "sibling-root-preserve-relative-path"
+  }
+}

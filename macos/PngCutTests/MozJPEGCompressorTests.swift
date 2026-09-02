@@ -48,7 +48,8 @@ final class MozJPEGCompressorTests: XCTestCase {
             )
             XCTFail("Expected a process failure")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .localExecution("invalid JPEG"))
+            XCTAssertEqual(failure.code, .engineFailed)
+            XCTAssertEqual(failure.technicalMessage, "invalid JPEG")
         }
     }
 
@@ -65,7 +66,8 @@ final class MozJPEGCompressorTests: XCTestCase {
             )
             XCTFail("Expected output validation to fail")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .outputValidation("MozJPEG did not create a non-empty output file."))
+            XCTAssertEqual(failure.code, .outputInvalid)
+            XCTAssertEqual(failure.technicalMessage, "MozJPEG did not create a non-empty output file.")
         }
     }
 
@@ -82,7 +84,8 @@ final class MozJPEGCompressorTests: XCTestCase {
             )
             XCTFail("Expected output validation to fail")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .outputValidation("MozJPEG did not create a non-empty output file."))
+            XCTAssertEqual(failure.code, .outputInvalid)
+            XCTAssertEqual(failure.technicalMessage, "MozJPEG did not create a non-empty output file.")
         }
     }
 

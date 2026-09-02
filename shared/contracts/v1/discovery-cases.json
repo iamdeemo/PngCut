@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "discover-case-insensitive-supported-images",
+      "platforms": ["all"],
+      "selectedPaths": ["import"],
+      "files": ["import/icon.PNG", "import/nested/photo.JpG", "import/nested/scan.JPEG", "import/nested/readme.pdf"],
+      "expectedImages": ["import/icon.PNG", "import/nested/photo.JpG", "import/nested/scan.JPEG"],
+      "expectedSkippedRegularFiles": 1
+    },
+    {
+      "id": "discover-deduplicates-normalized-inputs",
+      "platforms": ["all"],
+      "selectedPaths": ["import/icon.png", "import/nested/../icon.png"],
+      "files": ["import/icon.png"],
+      "expectedImages": ["import/icon.png"],
+      "expectedSkippedRegularFiles": 0
+    }
+  ]
+}

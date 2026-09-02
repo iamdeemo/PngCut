@@ -3,6 +3,7 @@ import Foundation
 enum ImageFormat: String, Equatable, Sendable {
     case png
     case jpeg
+    case gif
 
     init?(url: URL) {
         switch url.pathExtension.lowercased() {
@@ -10,19 +11,28 @@ enum ImageFormat: String, Equatable, Sendable {
             self = .png
         case "jpg", "jpeg":
             self = .jpeg
+        case "gif":
+            self = .gif
         default:
             return nil
         }
     }
 }
 
-struct DiscoveredImage: Equatable {
+struct DiscoveredImage: Equatable, Sendable {
     let fileURL: URL
     /// Non-nil only when the image was discovered beneath a directory the user selected.
     let importedFolderRoot: URL?
+    let format: ImageFormat
+
+    init(fileURL: URL, importedFolderRoot: URL?, format: ImageFormat? = nil) {
+        self.fileURL = fileURL.standardizedFileURL
+        self.importedFolderRoot = importedFolderRoot?.standardizedFileURL
+        self.format = format ?? ImageFormat(url: fileURL) ?? .png
+    }
 }
 
-struct FileDiscoveryResult: Equatable {
+struct FileDiscoveryResult: Equatable, Sendable {
     let images: [DiscoveredImage]
     let skippedNonImageCount: Int
 
@@ -32,7 +42,7 @@ struct FileDiscoveryResult: Equatable {
     var skippedNonPNGCount: Int { skippedNonImageCount }
 }
 
-struct FileDiscovery {
+struct FileDiscovery: Sendable {
     func discover(urls: [URL]) -> FileDiscoveryResult {
         var images: [DiscoveredImage] = []
         var seenFiles = Set<URL>()
@@ -48,8 +58,8 @@ struct FileDiscovery {
                 return
             }
 
-            if ImageFormat(url: fileURL) != nil {
-                images.append(DiscoveredImage(fileURL: fileURL, importedFolderRoot: importedFolderRoot))
+            if let format = ImageFormat(url: fileURL) {
+                images.append(DiscoveredImage(fileURL: fileURL, importedFolderRoot: importedFolderRoot, format: format))
             } else {
                 skippedNonImageCount += 1
             }

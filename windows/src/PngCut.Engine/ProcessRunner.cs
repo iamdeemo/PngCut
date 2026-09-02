@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using PngCut.Core.Models;
 
 namespace PngCut.Engine;
 
@@ -43,9 +44,20 @@ public sealed class ProcessRunner : IProcessRunner
         };
 
         using var process = new Process { StartInfo = startInfo };
-        if (!process.Start())
+        try
         {
-            throw new CompressionException("无法启动压缩程序。");
+            if (!process.Start())
+            {
+                throw new CompressionException(FailureCode.EngineUnavailable, "无法启动压缩程序。");
+            }
+        }
+        catch (CompressionException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new CompressionException(FailureCode.EngineUnavailable, exception.Message);
         }
 
         var standardOutput = process.StandardOutput.ReadToEndAsync();

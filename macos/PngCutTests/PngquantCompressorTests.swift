@@ -86,7 +86,8 @@ final class PngquantCompressorTests: XCTestCase {
             )
             XCTFail("Expected a process failure")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .localExecution("invalid PNG"))
+            XCTAssertEqual(failure.code, .engineFailed)
+            XCTAssertEqual(failure.technicalMessage, "invalid PNG")
         }
     }
 
@@ -103,7 +104,8 @@ final class PngquantCompressorTests: XCTestCase {
             )
             XCTFail("Expected output validation to fail")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .outputValidation("pngquant did not create an output file."))
+            XCTAssertEqual(failure.code, .outputInvalid)
+            XCTAssertEqual(failure.technicalMessage, "pngquant did not create an output file.")
         }
     }
 

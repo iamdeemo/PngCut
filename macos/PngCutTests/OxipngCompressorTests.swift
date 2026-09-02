@@ -75,7 +75,8 @@ final class OxipngCompressorTests: XCTestCase {
             )
             XCTFail("Expected a process failure")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .localExecution("invalid PNG"))
+            XCTAssertEqual(failure.code, .engineFailed)
+            XCTAssertEqual(failure.technicalMessage, "invalid PNG")
         }
     }
 
@@ -93,10 +94,8 @@ final class OxipngCompressorTests: XCTestCase {
             )
             XCTFail("Expected a launch failure")
         } catch let failure as CompressionFailure {
-            guard case let .localExecution(message) = failure else {
-                return XCTFail("Expected a local execution failure, got \(failure)")
-            }
-            XCTAssertTrue(message.hasPrefix("Unable to start oxipng:"))
+            XCTAssertEqual(failure.code, .engineFailed)
+            XCTAssertTrue(failure.technicalMessage?.hasPrefix("Unable to start oxipng:") == true)
         }
     }
 
@@ -115,7 +114,8 @@ final class OxipngCompressorTests: XCTestCase {
             )
             XCTFail("Expected output validation to fail")
         } catch let failure as CompressionFailure {
-            XCTAssertEqual(failure, .outputValidation("oxipng did not create an output file."))
+            XCTAssertEqual(failure.code, .outputInvalid)
+            XCTAssertEqual(failure.technicalMessage, "oxipng did not create an output file.")
         }
     }
 

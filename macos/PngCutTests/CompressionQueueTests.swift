@@ -2,6 +2,43 @@ import XCTest
 @testable import PngCut
 
 final class CompressionQueueTests: XCTestCase {
+    func testPNGSequenceTaskRetainsItsGeneratedGIFMetadataAndAllFrameSources() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PngCut-CompressionTaskSequenceTests-\(UUID().uuidString)", isDirectory: true)
+        let firstFrame = directory.appendingPathComponent("frames/first.png")
+        let secondFrame = directory.appendingPathComponent("frames/../frames/second.png")
+        let task = CompressionTask(
+            sourceURL: firstFrame,
+            sourceURLs: [firstFrame, secondFrame],
+            displayName: "walk.gif",
+            inputKind: .pngSequence(frameCount: 2),
+            isRetryable: false,
+            originalFileSize: 1_024
+        )
+
+        XCTAssertEqual(task.sourceURL, firstFrame.standardizedFileURL)
+        XCTAssertEqual(task.sourceURLs, [
+            firstFrame.standardizedFileURL,
+            secondFrame.standardizedFileURL
+        ])
+        XCTAssertEqual(task.displayName, "walk.gif")
+        XCTAssertEqual(task.inputKind, CompressionTaskInputKind.pngSequence(frameCount: 2))
+        XCTAssertEqual(task.originalFileSize, 1_024)
+        XCTAssertFalse(task.isRetryable)
+    }
+
+    func testSingleFileTaskKeepsCompatibilityDefaults() {
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PngCut-CompressionTaskDefaults/../source.png")
+        let task = CompressionTask(sourceURL: source)
+
+        XCTAssertEqual(task.sourceURL, source.standardizedFileURL)
+        XCTAssertEqual(task.sourceURLs, [source.standardizedFileURL])
+        XCTAssertEqual(task.displayName, "source.png")
+        XCTAssertEqual(task.inputKind, CompressionTaskInputKind.file)
+        XCTAssertTrue(task.isRetryable)
+    }
+
     func testQueueStartsSecondTaskOnlyAfterFirstSettles() async throws {
         let first = makeTask(named: "first")
         let second = makeTask(named: "second")
@@ -28,7 +65,10 @@ final class CompressionQueueTests: XCTestCase {
     func testQueueContinuesAfterIndividualTaskFailure() async throws {
         let failing = makeTask(named: "failing")
         let succeeding = makeTask(named: "succeeding")
-        let compressor = ControlledCompressor(outcomes: [.fail(.localExecution("oxipng exited 1")), .succeed])
+        let compressor = ControlledCompressor(outcomes: [.fail(CompressionFailure(
+            code: .engineFailed,
+            technicalMessage: "oxipng exited 1"
+        )), .succeed])
         let queue = CompressionQueue(compressor: compressor)
 
         await queue.enqueue([failing, succeeding])
@@ -38,7 +78,7 @@ final class CompressionQueueTests: XCTestCase {
         let states = await queue.tasks().map(\.state)
         XCTAssertEqual(startedSources, [failing.sourceURL, succeeding.sourceURL])
         XCTAssertEqual(states, [
-            .failed(.localExecution("oxipng exited 1")),
+            .failed(CompressionFailure(code: .engineFailed, technicalMessage: "oxipng exited 1")),
             .completed
         ])
     }
@@ -47,7 +87,7 @@ final class CompressionQueueTests: XCTestCase {
         let failing = makeTask(named: "failing")
         let succeeding = makeTask(named: "succeeding")
         let compressor = ControlledCompressor(outcomes: [
-            .fail(.localExecution("offline")),
+            .fail(CompressionFailure(code: .engineFailed, technicalMessage: "offline")),
             .succeed,
             .succeed
         ])
@@ -70,7 +110,10 @@ final class CompressionQueueTests: XCTestCase {
 
     func testRetryKeepsTheFailedTasksCompressor() async throws {
         let failed = makeTask(named: "failed")
-        let losslessCompressor = ControlledCompressor(outcomes: [.fail(.localExecution("failed")), .succeed])
+        let losslessCompressor = ControlledCompressor(outcomes: [.fail(CompressionFailure(
+            code: .engineFailed,
+            technicalMessage: "failed"
+        )), .succeed])
         let queue = CompressionQueue(compressor: losslessCompressor)
 
         await queue.enqueue([failed])
@@ -81,6 +124,64 @@ final class CompressionQueueTests: XCTestCase {
         let losslessSources = await losslessCompressor.startedSources()
         let states = await queue.tasks().map(\.state)
         XCTAssertEqual(losslessSources, [failed.sourceURL, failed.sourceURL])
+        XCTAssertEqual(states, [.completed])
+    }
+
+    func testRetryLeavesNonRetryableFailedTaskUntouched() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PngCut-NonRetryableTaskTests-\(UUID().uuidString)", isDirectory: true)
+        let failed = CompressionTask(
+            sourceURL: directory.appendingPathComponent("frame-01.png"),
+            sourceURLs: (0..<10).map { directory.appendingPathComponent("frame-\($0).png") },
+            inputKind: .pngSequence(frameCount: 10),
+            isRetryable: false,
+            outputURL: directory.appendingPathComponent("animation.gif"),
+            temporaryOutputURL: directory.appendingPathComponent(".animation.tmp.gif")
+        )
+        let compressor = ControlledCompressor(outcomes: [.fail(CompressionFailure(
+            code: .engineFailed,
+            technicalMessage: "invalid frames"
+        ))])
+        let queue = CompressionQueue(compressor: compressor)
+
+        await queue.enqueue([failed])
+        await queue.waitUntilIdle()
+        await queue.retryFailed()
+        await queue.waitUntilIdle()
+
+        let startedSources = await compressor.startedSources()
+        let states = await queue.tasks().map(\.state)
+        XCTAssertEqual(startedSources, [failed.sourceURL])
+        XCTAssertEqual(states, [
+            .failed(CompressionFailure(code: .engineFailed, technicalMessage: "invalid frames"))
+        ])
+    }
+
+    func testQueueRunsPNGSequenceOperationWithAllFrameSources() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PngCut-SequenceOperationTests-\(UUID().uuidString)", isDirectory: true)
+        let frames = (0..<10).map { directory.appendingPathComponent("frame-\($0).png") }
+        let task = CompressionTask(
+            sourceURL: frames[0],
+            sourceURLs: frames,
+            inputKind: .pngSequence(frameCount: frames.count),
+            outputURL: directory.appendingPathComponent("animation.gif"),
+            temporaryOutputURL: directory.appendingPathComponent(".animation.tmp.gif")
+        )
+        let encoder = RecordingSequenceEncoder()
+        let queue = CompressionQueue(compressor: FixedOutputCompressor(data: Data("unused".utf8)))
+
+        await queue.enqueue([
+            CompressionQueue.WorkItem(
+                task: task,
+                operation: .pngSequence(encoder, quality: 100, frameRate: 30, loop: .forever)
+            )
+        ])
+        await queue.waitUntilIdle()
+
+        let receivedFrames = await encoder.frames()
+        let states = await queue.tasks().map(\.state)
+        XCTAssertEqual(receivedFrames, frames.map(\.standardizedFileURL))
         XCTAssertEqual(states, [.completed])
     }
 
@@ -143,9 +244,14 @@ final class CompressionQueueTests: XCTestCase {
         XCTAssertEqual(completedTask.compressedFileSize, Int64(compressedData.count))
     }
 
-    func testLocalCompressionFailureCasesRemainTyped() {
-        XCTAssertEqual(CompressionFailure.localExecution("failed"), .localExecution("failed"))
-        XCTAssertEqual(CompressionFailure.outputValidation("missing output"), .outputValidation("missing output"))
+    func testCompressionFailureKeepsItsCodeAndTechnicalMessage() {
+        let engineFailure = CompressionFailure(code: .engineFailed, technicalMessage: "failed")
+        let outputFailure = CompressionFailure(code: .outputInvalid, technicalMessage: "missing output")
+
+        XCTAssertEqual(engineFailure.code, .engineFailed)
+        XCTAssertEqual(engineFailure.technicalMessage, "failed")
+        XCTAssertEqual(outputFailure.code, .outputInvalid)
+        XCTAssertEqual(outputFailure.technicalMessage, "missing output")
     }
 
     private func makeTask(named name: String) -> CompressionTask {
@@ -236,5 +342,27 @@ private struct FixedOutputCompressor: ImageCompressor {
         try data.write(to: temporaryDestination)
         progress(1)
         return .compressed
+    }
+}
+
+private actor RecordingSequenceEncoder: GifskiSequenceEncoding {
+    private var receivedFrames: [URL] = []
+
+    func encode(
+        frames: [URL],
+        temporaryDestination: URL,
+        quality: Int,
+        frameRate: Int,
+        loop: GIFLoop,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        receivedFrames = frames
+        try FileManager.default.createDirectory(at: temporaryDestination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("gif".utf8).write(to: temporaryDestination)
+        progress(1)
+    }
+
+    func frames() -> [URL] {
+        receivedFrames
     }
 }

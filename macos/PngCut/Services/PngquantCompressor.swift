@@ -50,7 +50,10 @@ struct PngquantCompressor: ImageCompressor, Sendable {
             return .noChange
         } else if result.status != 0 {
             let detail = result.standardError.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw CompressionFailure.localExecution(detail.isEmpty ? "pngquant exited with status \(result.status)." : detail)
+            throw CompressionFailure(
+                code: .engineFailed,
+                technicalMessage: detail.isEmpty ? "pngquant exited with status \(result.status)." : detail
+            )
         }
 
         try LocalProcessRunner.validateNonEmptyRegularFile(

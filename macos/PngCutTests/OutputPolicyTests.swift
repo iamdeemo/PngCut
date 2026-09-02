@@ -123,6 +123,71 @@ final class OutputPolicyTests: XCTestCase {
         XCTAssertEqual(prepared.temporaryURL.deletingLastPathComponent(), directory)
     }
 
+    func testGeneratedGIFWithOverwriteUsesAdjacentNonReplacingOutput() throws {
+        var planner = OutputPlanner(policy: .overwrite, customDirectory: nil, reservedFinalURLs: [])
+
+        let prepared = try planner.prepareGeneratedGIF(
+            representativeSource: source,
+            outputFileName: "walk.gif"
+        )
+
+        XCTAssertEqual(prepared.finalURL, directory.appendingPathComponent("walk.gif"))
+        XCTAssertFalse(prepared.allowsReplacingExistingFile)
+        XCTAssertEqual(prepared.temporaryURL.deletingLastPathComponent(), directory)
+    }
+
+    func testGeneratedGIFAvoidsExistingOutputName() throws {
+        let existingOutput = directory.appendingPathComponent("walk.gif")
+        try Data("existing output".utf8).write(to: existingOutput)
+        var planner = OutputPlanner(policy: .adjacent, customDirectory: nil, reservedFinalURLs: [])
+
+        let prepared = try planner.prepareGeneratedGIF(
+            representativeSource: source,
+            outputFileName: "walk.gif"
+        )
+
+        XCTAssertEqual(prepared.finalURL, directory.appendingPathComponent("walk-2.gif"))
+        XCTAssertEqual(try Data(contentsOf: existingOutput), Data("existing output".utf8))
+    }
+
+    func testGeneratedGIFReservesDistinctNamesInOneBatch() throws {
+        var planner = OutputPlanner(policy: .adjacent, customDirectory: nil, reservedFinalURLs: [])
+
+        let first = try planner.prepareGeneratedGIF(
+            representativeSource: source,
+            outputFileName: "walk.gif"
+        )
+        let second = try planner.prepareGeneratedGIF(
+            representativeSource: source,
+            outputFileName: "walk.gif"
+        )
+
+        XCTAssertEqual(first.finalURL, directory.appendingPathComponent("walk.gif"))
+        XCTAssertEqual(second.finalURL, directory.appendingPathComponent("walk-2.gif"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.finalURL.path))
+    }
+
+    func testGeneratedGIFFolderImportPreservesRepresentativeRelativeDirectory() throws {
+        let selectedRoot = directory.appendingPathComponent("root", isDirectory: true)
+        let nestedDirectory = selectedRoot.appendingPathComponent("nested", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedDirectory, withIntermediateDirectories: true)
+        let representativeSource = nestedDirectory.appendingPathComponent("frame-001.png")
+        try Data("frame".utf8).write(to: representativeSource)
+        var planner = OutputPlanner(policy: .adjacent, customDirectory: nil, reservedFinalURLs: [])
+
+        let prepared = try planner.prepareGeneratedGIF(
+            representativeSource: representativeSource,
+            outputFileName: "walk.gif",
+            importedFolderRoot: selectedRoot
+        )
+
+        XCTAssertEqual(
+            prepared.finalURL,
+            directory.appendingPathComponent("root_pngcut/nested/walk.gif")
+        )
+        XCTAssertFalse(prepared.allowsReplacingExistingFile)
+    }
+
     func testEachPreparedOutputGetsUniqueTemporarySibling() throws {
         let first = try OutputPolicy.adjacent.prepare(source: source)
         let second = try OutputPolicy.adjacent.prepare(source: source)

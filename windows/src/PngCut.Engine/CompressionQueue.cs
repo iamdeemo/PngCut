@@ -44,16 +44,38 @@ public sealed class CompressionQueue
             throw new ArgumentNullException(nameof(task));
         }
 
+        FailureCode? preparationFailure = null;
         lock (_gate)
         {
-            var output = RegisterQueuedTask(task);
+            PreparedOutput output;
+            try
+            {
+                output = RegisterQueuedTask(task);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is CompressionException)
+            {
+                task.StartProcessing();
+                preparationFailure = FailureCodeFor(exception);
+                task.Fail(preparationFailure.Value);
+                output = null!;
+            }
 
-            _tail = _tail.ContinueWith(
-                    _ => ProcessTaskAsync(task, output),
-                    TaskScheduler.Default)
-                .Unwrap();
-            return _tail;
+            if (preparationFailure.HasValue)
+            {
+                // The task is already in a stable failed state; do not queue a worker.
+            }
+            else
+            {
+                _tail = _tail.ContinueWith(
+                        _ => ProcessTaskAsync(task, output),
+                        TaskScheduler.Default)
+                    .Unwrap();
+                return _tail;
+            }
         }
+
+        NotifyTaskFailed(task);
+        return Task.CompletedTask;
     }
 
     public Task RetryAsync(CompressionTask task)
@@ -104,8 +126,24 @@ public sealed class CompressionQueue
         {
             task.StartProcessing();
             NotifyTaskStarted(task);
-            var sourceBytes = new FileInfo(task.SourcePath).Length;
-            Directory.CreateDirectory(Path.GetDirectoryName(output.FinalPath)!);
+            long sourceBytes;
+            try
+            {
+                sourceBytes = new FileInfo(task.SourcePath).Length;
+            }
+            catch (Exception exception)
+            {
+                throw new CompressionException(FailureCode.InputUnreadable, exception.Message);
+            }
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(output.FinalPath)!);
+            }
+            catch (Exception exception)
+            {
+                throw new CompressionException(FailureCode.OutputPolicyInvalid, exception.Message);
+            }
 
             var result = await _runner.RunAsync(
                 _resolver.Resolve(task.Engine),
@@ -131,7 +169,7 @@ public sealed class CompressionQueue
 
             if (task.State == TaskState.Processing)
             {
-                task.Fail("压缩失败：" + FailureReason(exception));
+                task.Fail(FailureCodeFor(exception));
                 NotifyTaskFailed(task);
             }
         }
@@ -161,7 +199,7 @@ public sealed class CompressionQueue
 
         if (!output.AllowsReplacingExistingFile && _reservedFinalPaths.Contains(output.FinalPath))
         {
-            throw new CompressionException("输出文件名已被其他任务占用。");
+            throw new CompressionException(FailureCode.OutputConflict, "输出文件名已被其他任务占用。");
         }
 
         _reservedFinalPaths.Add(output.FinalPath);
@@ -188,7 +226,8 @@ public sealed class CompressionQueue
 
     private async Task ProcessRetryAsync(CompressionTask task)
     {
-        PreparedOutput output;
+        PreparedOutput? output = null;
+        FailureCode? preparationFailure = null;
         lock (_gate)
         {
             try
@@ -196,13 +235,25 @@ public sealed class CompressionQueue
                 task.Retry();
                 output = RegisterQueuedTask(task);
             }
+            catch (Exception exception) when (exception is ArgumentException || exception is CompressionException)
+            {
+                task.StartProcessing();
+                preparationFailure = FailureCodeFor(exception);
+                task.Fail(preparationFailure.Value);
+            }
             finally
             {
                 _scheduledRetries.Remove(task);
             }
         }
 
-        await ProcessTaskAsync(task, output).ConfigureAwait(false);
+        if (preparationFailure.HasValue)
+        {
+            NotifyTaskFailed(task);
+            return;
+        }
+
+        await ProcessTaskAsync(task, output!).ConfigureAwait(false);
     }
 
     private static CompressionOutcome InterpretResult(CompressionTask task, ProcessResult result)
@@ -214,7 +265,7 @@ public sealed class CompressionQueue
 
         if (result.ExitCode != 0)
         {
-            throw new CompressionException("压缩程序执行失败。");
+            throw new CompressionException(FailureCode.EngineFailed, "压缩程序执行失败。");
         }
 
         return CompressionOutcome.Compressed;
@@ -224,7 +275,7 @@ public sealed class CompressionQueue
     {
         if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length == 0)
         {
-            throw new CompressionException("压缩程序没有生成有效输出文件。");
+            throw new CompressionException(FailureCode.OutputInvalid, "压缩程序没有生成有效输出文件。");
         }
     }
 
@@ -238,7 +289,7 @@ public sealed class CompressionQueue
 
         if (File.Exists(output.FinalPath))
         {
-            throw new CompressionException("输出文件已存在，未覆盖原文件。");
+            throw new CompressionException(FailureCode.OutputConflict, "输出文件已存在，未覆盖原文件。");
         }
 
         File.Move(output.TemporaryPath, output.FinalPath);
@@ -328,6 +379,8 @@ public sealed class CompressionQueue
         }
     }
 
-    private static string FailureReason(Exception exception) =>
-        exception is CompressionException ? exception.Message : "无法完成本次压缩。";
+    private static FailureCode FailureCodeFor(Exception exception) =>
+        exception is CompressionException compressionException
+            ? compressionException.Code
+            : FailureCode.EngineFailed;
 }
