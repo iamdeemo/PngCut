@@ -25,6 +25,17 @@ final class PngCutTests: XCTestCase {
         XCTAssertEqual(Bundle(for: AppModel.self).developmentLocalization, "zh-Hans")
     }
 
+    func testAppKeepsTheOriginalBundleIdentityForExistingInstalls() {
+        XCTAssertEqual(Bundle(for: AppModel.self).bundleIdentifier, "com.ffpng.app")
+    }
+
+    func testAppPublishesTheNextReleaseVersion() {
+        let bundle = Bundle(for: AppModel.self)
+
+        XCTAssertEqual(bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, "1.0.1")
+        XCTAssertEqual(bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String, "2")
+    }
+
     func testWorkspacePaletteUsesRequestedF4Gray() {
         let color = AppPalette.workspace
 
