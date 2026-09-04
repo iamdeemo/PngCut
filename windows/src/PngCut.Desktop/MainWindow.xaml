@@ -1,0 +1,195 @@
+<Window x:Class="PngCut.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PngCut.Desktop.Controls"
+        Title="PngCut"
+        MinWidth="720"
+        MinHeight="520"
+        Width="860"
+        Height="620"
+        Background="{StaticResource WorkspaceBrush}"
+        AllowDrop="True"
+        DragOver="Window_OnDragOver"
+        Drop="Window_OnDrop">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="64" />
+    </Grid.RowDefinitions>
+
+    <UserControl x:Name="DropTarget"
+                 Grid.Row="0"
+                 Margin="24,24,24,20"
+                 AutomationProperties.AutomationId="DropTarget">
+      <Border Padding="24"
+              Background="{StaticResource WorkspaceBrush}"
+              BorderBrush="{StaticResource BorderBrush}"
+              BorderThickness="1"
+              CornerRadius="10">
+        <Grid>
+        <Grid x:Name="EmptyState" Visibility="Visible">
+          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Width="72" Height="72" HorizontalAlignment="Center" Background="#142482F1" CornerRadius="18">
+              <Image Width="40" Height="40" Source="{StaticResource ImageAddAccentIcon}" Stretch="Uniform" />
+            </Border>
+            <TextBlock Margin="0,20,0,6" Text="拖入图片文件或文件夹" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" HorizontalAlignment="Center" />
+            <TextBlock Text="支持 PNG、JPG 和 JPEG，全部在本机处理" Foreground="{StaticResource SecondaryTextBrush}" HorizontalAlignment="Center" />
+            <StackPanel Margin="0,20,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+              <Button x:Name="ChooseFilesButton"
+                      Style="{StaticResource PrimaryButtonStyle}"
+                      Click="ChooseFilesButton_OnClick"
+                      AutomationProperties.AutomationId="ChooseFilesButton">
+                <Button.Content>
+                  <StackPanel Orientation="Horizontal">
+                    <Image Width="18" Height="18" Margin="0,0,8,0" Source="{StaticResource ImageAddOnAccentIcon}" />
+                    <TextBlock Text="选择图片" />
+                  </StackPanel>
+                </Button.Content>
+              </Button>
+              <Button Margin="10,0,0,0"
+                      Style="{StaticResource ToolbarButtonStyle}"
+                      Click="ChooseFolderButton_OnClick"
+                      AutomationProperties.AutomationId="ChooseFolderButton">
+                <Button.Content>
+                  <StackPanel Orientation="Horizontal">
+                    <Image Width="18" Height="18" Margin="0,0,8,0" Source="{StaticResource FolderOpenIcon}" />
+                    <TextBlock Text="选择文件夹" />
+                  </StackPanel>
+                </Button.Content>
+              </Button>
+            </StackPanel>
+            <TextBlock x:Name="SkippedEmptyText"
+                       Margin="0,14,0,0"
+                       Text=""
+                       Foreground="{StaticResource SecondaryTextBrush}"
+                       HorizontalAlignment="Center" />
+          </StackPanel>
+        </Grid>
+
+        <Grid x:Name="TaskState" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,12">
+            <TextBlock Text="任务列表" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" DockPanel.Dock="Left" />
+            <Button
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    Padding="12,2"
+                    MinHeight="44"
+                    Click="ChooseFilesButton_OnClick"
+                    AutomationProperties.AutomationId="AddFilesButton"
+                    DockPanel.Dock="Right">
+            <Button.Content>
+              <StackPanel Orientation="Horizontal">
+                <Image Width="18" Height="18" Margin="0,0,8,0" Source="{StaticResource ImageAddIcon}" />
+                <TextBlock Text="添加图片" />
+              </StackPanel>
+            </Button.Content>
+            </Button>
+          </DockPanel>
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Tasks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,8" Padding="12" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                    <Grid MinHeight="62">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="36" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <Border Width="32" Height="32" Background="#142482F1" CornerRadius="8" VerticalAlignment="Top">
+                        <Image Width="21" Height="21" Source="{StaticResource ImageFileIcon}" Stretch="Uniform" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Margin="10,0,12,0">
+                        <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Margin="0,5,0,0" Text="{Binding DetailText}" Foreground="{StaticResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                        <ProgressBar Height="3" Margin="0,7,0,0" IsIndeterminate="True" Visibility="{Binding IsProcessing, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" MinWidth="72" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding StateText}" HorizontalAlignment="Right" Foreground="{StaticResource AccentBrush}" />
+                        <TextBlock Text="{Binding SavingsText}" Margin="0,3,0,0" HorizontalAlignment="Right" Foreground="#278A45" />
+                        <Button Content="重试" Command="{Binding RetryCommand}" Style="{StaticResource ToolbarButtonStyle}" Padding="8,0" Visibility="{Binding CanRetry, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+        </Grid>
+      </Border>
+    </UserControl>
+
+    <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+      <DockPanel LastChildFill="False" Margin="14,0">
+        <controls:ModeSelector x:Name="ModeSelector" SelectedMode="{Binding PngMode, Mode=TwoWay}" VerticalAlignment="Center" DockPanel.Dock="Left" />
+        <Button x:Name="RevealOutputButton"
+                Margin="10,0,0,0"
+                Style="{StaticResource ToolbarButtonStyle}"
+                Click="RevealOutputButton_OnClick"
+                IsEnabled="{Binding CanRevealOutput}"
+                AutomationProperties.AutomationId="RevealOutputButton"
+                DockPanel.Dock="Right">
+        <Button.Content>
+          <StackPanel Orientation="Horizontal">
+            <Image Width="18" Height="18" Margin="0,0,8,0" Source="{StaticResource FolderOpenIcon}" />
+            <TextBlock Text="打开输出" />
+          </StackPanel>
+        </Button.Content>
+        </Button>
+        <Button x:Name="SettingsButton"
+                Margin="8,0,0,0"
+                Style="{StaticResource ToolbarButtonStyle}"
+                Click="SettingsButton_OnClick"
+                AutomationProperties.AutomationId="SettingsButton"
+                DockPanel.Dock="Right">
+        <Button.Content>
+          <StackPanel Orientation="Horizontal">
+            <Image Width="18" Height="18" Margin="0,0,8,0" Source="{StaticResource SettingsIcon}" />
+            <TextBlock Text="设置" />
+          </StackPanel>
+        </Button.Content>
+        </Button>
+      </DockPanel>
+    </Border>
+
+    <Grid x:Name="DrawerHost" Grid.RowSpan="2" Visibility="Collapsed" Panel.ZIndex="10">
+      <Border x:Name="SettingsScrim" Background="#52000000" MouseLeftButtonDown="SettingsScrim_OnMouseLeftButtonDown" />
+      <Border x:Name="SettingsDrawer"
+              Width="390"
+              Padding="24"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Stretch"
+              Background="{StaticResource DrawerBrush}"
+              BorderBrush="{StaticResource BorderBrush}"
+              BorderThickness="1,0,0,0">
+        <Border.RenderTransform>
+          <TranslateTransform x:Name="DrawerTransform" />
+        </Border.RenderTransform>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <DockPanel Margin="0,0,0,24" LastChildFill="False">
+              <TextBlock Text="设置" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" />
+              <Button Content="关闭" Style="{StaticResource ToolbarButtonStyle}" Click="CloseSettingsButton_OnClick" DockPanel.Dock="Right" />
+            </DockPanel>
+
+            <TextBlock Text="保存位置" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" />
+            <RadioButton x:Name="AdjacentOutput" GroupName="OutputMode" Tag="Adjacent" Content="原文件旁边" Margin="0,12,0,0" Style="{StaticResource SettingsRadioButtonStyle}" Click="OutputMode_OnClick" AutomationProperties.AutomationId="AdjacentOutputMode" />
+            <RadioButton x:Name="CustomOutput" GroupName="OutputMode" Tag="Custom" Content="指定输出文件夹" Margin="0,2,0,0" Style="{StaticResource SettingsRadioButtonStyle}" Click="OutputMode_OnClick" AutomationProperties.AutomationId="CustomOutputMode" />
+            <RadioButton x:Name="OverwriteOutput" GroupName="OutputMode" Tag="Overwrite" Content="覆盖原文件" Margin="0,2,0,0" Style="{StaticResource SettingsRadioButtonStyle}" Click="OutputMode_OnClick" AutomationProperties.AutomationId="OverwriteOutputMode" />
+            <TextBlock Text="{Binding CustomOutputDirectory}" Foreground="{StaticResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
+            <Button Content="选择输出文件夹" Style="{StaticResource ToolbarButtonStyle}" HorizontalAlignment="Left" Click="ChooseOutputFolderButton_OnClick" />
+
+            <Separator Margin="0,18,0,18" />
+            <TextBlock Text="PNG 压缩方式" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" />
+            <RadioButton x:Name="LosslessMode" GroupName="PngMode" Content="无损" Margin="0,12,0,0" Style="{StaticResource SettingsRadioButtonStyle}" Click="LosslessMode_OnClick" AutomationProperties.AutomationId="LosslessModeSettings" />
+            <RadioButton x:Name="BalancedMode" GroupName="PngMode" Content="平衡" Margin="0,2,0,0" Style="{StaticResource SettingsRadioButtonStyle}" Click="BalancedMode_OnClick" AutomationProperties.AutomationId="BalancedModeSettings" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

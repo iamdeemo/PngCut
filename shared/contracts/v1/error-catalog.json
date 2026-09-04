@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "errors": [
+    { "code": "input_unreadable", "message": "无法读取输入文件。" },
+    { "code": "output_policy_invalid", "message": "输出位置无效。" },
+    { "code": "engine_unavailable", "message": "压缩引擎不可用。" },
+    { "code": "engine_failed", "message": "压缩程序执行失败。" },
+    { "code": "output_invalid", "message": "压缩程序没有生成有效输出文件。" },
+    { "code": "output_conflict", "message": "输出文件已存在，未覆盖原文件。" }
+  ]
+}

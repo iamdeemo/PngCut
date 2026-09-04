@@ -1,0 +1,96 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Geometry is copied from PngCut/Resources/Assets.xcassets and kept at the original 24x24 viewBox. -->
+  <Pen x:Key="IconPen" Brush="{StaticResource PrimaryTextBrush}" Thickness="2" StartLineCap="Square" EndLineCap="Square" LineJoin="Miter" />
+  <Pen x:Key="IconAccentPen" Brush="{StaticResource AccentBrush}" Thickness="2" StartLineCap="Square" EndLineCap="Square" LineJoin="Miter" />
+  <Pen x:Key="IconOnAccentPen" Brush="White" Thickness="2" StartLineCap="Square" EndLineCap="Square" LineJoin="Miter" />
+
+  <DrawingImage x:Key="FolderOpenIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Pen="{StaticResource IconPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M1 20H19.5L22.5 10H4L1 20ZM1 20L1 3.5L7 3.5L10 6L19.5 6L19.5 10" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <DrawingImage x:Key="FolderOpenAccentIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Pen="{StaticResource IconAccentPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M1 20H19.5L22.5 10H4L1 20ZM1 20L1 3.5L7 3.5L10 6L19.5 6L19.5 10" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <DrawingImage x:Key="ImageAddIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Pen="{StaticResource IconPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M21 11V3H3V21H11M13 14L9 10L3.5 15.5M17.75 8.25C17.75 9.35457 16.8546 10.25 15.75 10.25C14.6454 10.25 13.75 9.35457 13.75 8.25C13.75 7.14543 14.6454 6.25 15.75 6.25C16.8546 6.25 17.75 7.14543 17.75 8.25ZM19 15V19M19 19V23M19 19H15M19 19H23" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <DrawingImage x:Key="ImageAddAccentIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Pen="{StaticResource IconAccentPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M21 11V3H3V21H11M13 14L9 10L3.5 15.5M17.75 8.25C17.75 9.35457 16.8546 10.25 15.75 10.25C14.6454 10.25 13.75 9.35457 13.75 8.25C13.75 7.14543 14.6454 6.25 15.75 6.25C16.8546 6.25 17.75 7.14543 17.75 8.25ZM19 15V19M19 19V23M19 19H15M19 19H23" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <DrawingImage x:Key="ImageAddOnAccentIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Pen="{StaticResource IconOnAccentPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M21 11V3H3V21H11M13 14L9 10L3.5 15.5M17.75 8.25C17.75 9.35457 16.8546 10.25 15.75 10.25C14.6454 10.25 13.75 9.35457 13.75 8.25C13.75 7.14543 14.6454 6.25 15.75 6.25C16.8546 6.25 17.75 7.14543 17.75 8.25ZM19 15V19M19 19V23M19 19H15M19 19H23" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <DrawingImage x:Key="ImageFileIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="White" Pen="{StaticResource IconPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M3 21H20L9 10L3 16V21Z" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Pen="{StaticResource IconPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M3 16V3H21V21H20M3 16V21H20M3 16L9 10L20 21M15.75 6.25A2 2 0 1 0 15.75 10.25A2 2 0 1 0 15.75 6.25" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+
+  <DrawingImage x:Key="SettingsIcon">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Pen="{StaticResource IconPen}">
+          <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M9.40811 4.95996L10.0001 2H14.0001L14.5921 4.95996C15.4027 5.25851 16.1475 5.69306 16.7989 6.23595L19.6604 5.26796L21.6604 8.73206L19.3922 10.7254C19.4632 11.1396 19.5001 11.5655 19.5001 12C19.5001 12.4345 19.4632 12.8604 19.3922 13.2747L21.6604 15.268L19.6604 18.7321L16.7989 17.7641C16.1475 18.3069 15.4027 18.7415 14.5921 19.04L14.0001 22H10.0001L9.40811 19.04C8.5975 18.7415 7.85268 18.3069 7.20131 17.7641L4.33984 18.7321L2.33984 15.268L4.60798 13.2747C4.53705 12.8604 4.5001 12.4345 4.5001 12C4.5001 11.5655 4.53705 11.1396 4.60797 10.7254L2.33984 8.73206L4.33984 5.26796L7.20129 6.23595C7.85266 5.69306 8.59749 5.25851 9.40811 4.95996ZM16 12C16 14.2091 14.2091 16 12 16C9.79086 16 8 14.2091 8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12Z" />
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+</ResourceDictionary>
