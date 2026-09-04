@@ -85,4 +85,33 @@ final class PngCutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["gifLoopForever"].exists)
         XCTAssertTrue(app.buttons["gifLoopOnce"].exists)
     }
+
+    func testNoSequenceDecisionBlocksImportUntilNoticeIsAcknowledged() {
+        app.terminate()
+        app.launchArguments = ["--ui-test-no-sequence-decision"]
+        app.launch()
+
+        let title = app.staticTexts["未发现 PNG 序列"]
+        XCTAssertTrue(title.waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["chooseFilesButton"].isEnabled)
+        XCTAssertTrue(app.buttons["不压缩"].isHittable)
+
+        app.buttons["不压缩"].tap()
+        XCTAssertTrue(app.staticTexts["当前文件夹没有 PNG 序列，无法转 GIF"].waitForExistence(timeout: 2))
+        app.buttons["好"].tap()
+
+        XCTAssertFalse(title.exists)
+        XCTAssertTrue(app.buttons["chooseFilesButton"].isEnabled)
+    }
+
+    func testSequenceDecisionShowsBothExplicitActions() {
+        app.terminate()
+        app.launchArguments = ["--ui-test-sequence-decision"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["发现 PNG 序列"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["转 GIF"].isHittable)
+        XCTAssertTrue(app.buttons["常规压缩"].isHittable)
+        XCTAssertFalse(app.buttons["chooseFilesButton"].isEnabled)
+    }
 }

@@ -1,6 +1,9 @@
 import AppKit
+import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
+
+private let importInteractionLogger = Logger(subsystem: "com.pngcut.app", category: "import")
 
 enum AppPalette {
     static let workspace = NSColor(
@@ -51,42 +54,24 @@ struct MainWindowView: View {
         .background(WindowAppearanceConfigurator())
         .preferredColorScheme(.light)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            acceptDrop(providers)
-        }
-        .alert(item: importPromptBinding) { prompt in
-            switch prompt {
-            case .convertSequences:
-                Alert(
-                    title: Text("发现 PNG 序列"),
-                    message: Text(prompt.message),
-                    primaryButton: .default(Text("转 GIF")) {
-                        model.resolvePendingImport(convertSequence: true)
-                    },
-                    secondaryButton: .cancel(Text("常规压缩")) {
-                        model.resolvePendingImport(convertSequence: false)
-                    }
-                )
-            case .compressWithoutSequence:
-                Alert(
-                    title: Text("未发现 PNG 序列"),
-                    message: Text("是否按常规方式压缩当前文件？"),
-                    primaryButton: .default(Text("压缩")) {
-                        model.resolvePendingImport(compressInstead: true)
-                    },
-                    secondaryButton: .cancel(Text("不压缩")) {
-                        model.resolvePendingImport(compressInstead: false)
-                    }
-                )
+            guard !model.isImportDecisionPresented else {
+                return false
             }
+            return acceptDrop(providers)
         }
-        .alert(item: importNoticeBinding) { notice in
-            Alert(
-                title: Text("无法转 GIF"),
-                message: Text(notice.message),
-                dismissButton: .default(Text("好")) {
-                    model.dismissImportNotice()
-                }
+        .overlay(importDecisionOverlay)
+    }
+
+    @ViewBuilder
+    private var importDecisionOverlay: some View {
+        if let decision = model.activeImportDecision {
+            ImportDecisionOverlay(
+                model: model,
+                decision: decision,
+                accent: accent
             )
+            .transition(.opacity)
+            .zIndex(10)
         }
     }
 
@@ -97,7 +82,8 @@ struct MainWindowView: View {
                     EmptyDropView(
                         accent: accent,
                         isTargeted: isDropTargeted,
-                        skippedNonImageCount: model.skippedNonPNGCount
+                        skippedNonImageCount: model.skippedNonPNGCount,
+                        isImportDecisionPresented: model.isImportDecisionPresented
                     ) {
                         chooseFiles()
                     }
@@ -143,6 +129,7 @@ struct MainWindowView: View {
                 Button("添加文件", action: chooseFiles)
                     .buttonStyle(.borderless)
                     .foregroundStyle(accent)
+                    .disabled(model.isImportDecisionPresented)
                     .accessibilityIdentifier("addFilesButton")
             }
 
@@ -190,6 +177,10 @@ struct MainWindowView: View {
     }
 
     private func chooseFiles() {
+        guard !model.isImportDecisionPresented else {
+            return
+        }
+        importInteractionLogger.notice("Import picker opened")
         let panel = NSOpenPanel()
         panel.title = "选择 PNG/JPG/GIF 文件或文件夹"
         panel.message = "请选择要压缩的 PNG/JPG/GIF 文件或文件夹"
@@ -199,7 +190,19 @@ struct MainWindowView: View {
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.png, .jpeg, .gif, .folder]
         panel.begin { response in
-            guard response == .OK else { return }
+            guard response == .OK else {
+                importInteractionLogger.notice("Import picker cancelled")
+                return
+            }
+            let extensions = Set(panel.urls.map { $0.pathExtension.lowercased() })
+                .sorted()
+                .joined(separator: ",")
+            importInteractionLogger.notice(
+                "Import picker accepted: selected=\(panel.urls.count, privacy: .public), extensions=\(extensions, privacy: .public)"
+            )
+            guard !model.isImportDecisionPresented else {
+                return
+            }
             model.add(urls: panel.urls)
         }
     }
@@ -217,6 +220,10 @@ struct MainWindowView: View {
     }
 
     private func acceptDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard !model.isImportDecisionPresented else {
+            return false
+        }
+        importInteractionLogger.notice("Import drop accepted: providers=\(providers.count, privacy: .public)")
         for provider in providers {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 let url: URL?
@@ -225,8 +232,15 @@ struct MainWindowView: View {
                 } else {
                     url = item as? URL
                 }
-                guard let url else { return }
+                guard let url else {
+                    importInteractionLogger.error("Import drop provider did not supply a file URL")
+                    return
+                }
                 Task { @MainActor in
+                    guard !model.isImportDecisionPresented else {
+                        return
+                    }
+                    importInteractionLogger.notice("Import drop URL decoded: extension=\(url.pathExtension.lowercased(), privacy: .public)")
                     model.add(urls: [url])
                 }
             }
@@ -234,39 +248,13 @@ struct MainWindowView: View {
         return !providers.isEmpty
     }
 
-    private var importPromptBinding: Binding<ImportPrompt?> {
-        Binding(
-            get: { model.pendingImportPrompt },
-            set: { prompt in
-                guard prompt == nil else { return }
-                switch model.pendingImportPrompt {
-                case .convertSequences:
-                    model.resolvePendingImport(convertSequence: false)
-                case .compressWithoutSequence:
-                    model.resolvePendingImport(compressInstead: false)
-                case nil:
-                    break
-                }
-            }
-        )
-    }
-
-    private var importNoticeBinding: Binding<ImportNotice?> {
-        Binding(
-            get: { model.importNotice },
-            set: { notice in
-                if notice == nil {
-                    model.dismissImportNotice()
-                }
-            }
-        )
-    }
 }
 
 private struct EmptyDropView: View {
     let accent: Color
     let isTargeted: Bool
     let skippedNonImageCount: Int
+    let isImportDecisionPresented: Bool
     let chooseFiles: () -> Void
 
     var body: some View {
@@ -283,6 +271,7 @@ private struct EmptyDropView: View {
                 .foregroundStyle(.primary)
             Button("选择文件", action: chooseFiles)
                 .buttonStyle(PrimaryButtonStyle(accent: accent))
+                .disabled(isImportDecisionPresented)
                 .accessibilityIdentifier("chooseFilesButton")
             if skippedNonImageCount > 0 {
                 Text("\(skippedNonImageCount) 个非图片文件未添加")
@@ -293,6 +282,104 @@ private struct EmptyDropView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(isTargeted ? accent.opacity(0.07) : .clear)
+    }
+}
+
+private struct ImportDecisionOverlay: View {
+    @ObservedObject var model: AppModel
+    let decision: ImportDecision
+    let accent: Color
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.28)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+
+            VStack(alignment: .leading, spacing: 16) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text(message)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(message)
+
+                HStack(spacing: 10) {
+                    Spacer()
+                    buttons
+                }
+            }
+            .padding(22)
+            .frame(width: 360)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+        }
+        .accessibilityIdentifier("importDecisionOverlay")
+        .accessibilityElement(children: .contain)
+    }
+
+    private var title: String {
+        switch decision {
+        case .sequenceDetected:
+            "发现 PNG 序列"
+        case .noSequenceDetected:
+            "未发现 PNG 序列"
+        case .noSequenceNotice:
+            "无法转 GIF"
+        }
+    }
+
+    private var message: String {
+        switch decision {
+        case let .sequenceDetected(resolution):
+            resolution.convertMessage
+        case .noSequenceDetected:
+            "是否按常规方式压缩当前文件？"
+        case .noSequenceNotice:
+            "当前文件夹没有 PNG 序列，无法转 GIF"
+        }
+    }
+
+    @ViewBuilder
+    private var buttons: some View {
+        switch decision {
+        case .sequenceDetected:
+            Button("常规压缩") {
+                model.resolveSequenceDecision(convertSequence: false)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("importDecisionCompress")
+
+            Button("转 GIF") {
+                model.resolveSequenceDecision(convertSequence: true)
+            }
+            .buttonStyle(PrimaryButtonStyle(accent: accent))
+            .accessibilityIdentifier("importDecisionConvert")
+
+        case .noSequenceDetected:
+            Button("不压缩") {
+                model.resolveNoSequenceDecision(compressInstead: false)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("importDecisionDecline")
+
+            Button("常规压缩") {
+                model.resolveNoSequenceDecision(compressInstead: true)
+            }
+            .buttonStyle(PrimaryButtonStyle(accent: accent))
+            .accessibilityIdentifier("importDecisionCompress")
+
+        case .noSequenceNotice:
+            Button("好") {
+                model.dismissNoSequenceNotice()
+            }
+            .buttonStyle(PrimaryButtonStyle(accent: accent))
+            .accessibilityIdentifier("importDecisionAcknowledge")
+        }
     }
 }
 

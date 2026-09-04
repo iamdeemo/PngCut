@@ -384,20 +384,19 @@ final class GIFImportAppModelTests: XCTestCase {
 
         model.add(urls: [first])
         model.add(urls: [second])
-        let showedFirstPrompt = await waitUntil { model.pendingImportPrompt != nil }
+        let showedFirstPrompt = await waitUntil { model.activeImportDecision != nil }
         let analyzedBothImports = await waitUntil { detector.detectionCount == 2 }
         XCTAssertTrue(showedFirstPrompt)
         XCTAssertTrue(analyzedBothImports)
         await Task.yield()
 
-        model.resolvePendingImport(compressInstead: false)
+        model.resolveNoSequenceDecision(compressInstead: false)
 
-        XCTAssertEqual(model.importNotice?.message, "当前文件夹没有 PNG 序列，无法转 GIF")
-        XCTAssertNil(model.pendingImportPrompt)
+        XCTAssertEqual(model.activeImportDecision, .noSequenceNotice)
 
-        model.dismissImportNotice()
+        model.dismissNoSequenceNotice()
         let showedSecondPrompt = await waitUntil {
-            guard case let .compressWithoutSequence(resolution)? = model.pendingImportPrompt else { return false }
+            guard case let .noSequenceDetected(resolution)? = model.activeImportDecision else { return false }
             return resolution.regularImages.map(\.fileURL) == [second]
         }
         XCTAssertTrue(showedSecondPrompt)
@@ -458,14 +457,14 @@ final class GIFImportAppModelTests: XCTestCase {
         XCTAssertFalse(detector.secondDiscoveryStartedBeforeFirstRelease)
 
         let showedFirstPrompt = await waitUntil {
-            guard case let .convertSequences(resolution)? = model.pendingImportPrompt else { return false }
+            guard case let .sequenceDetected(resolution)? = model.activeImportDecision else { return false }
             return resolution.sequences == [first]
         }
         XCTAssertTrue(showedFirstPrompt)
 
-        model.resolvePendingImport(convertSequence: false)
+        model.resolveSequenceDecision(convertSequence: false)
         let showedSecondPrompt = await waitUntil {
-            guard case let .convertSequences(resolution)? = model.pendingImportPrompt else { return false }
+            guard case let .sequenceDetected(resolution)? = model.activeImportDecision else { return false }
             return resolution.sequences == [second]
         }
         XCTAssertTrue(showedSecondPrompt)
@@ -544,19 +543,18 @@ final class GIFImportAppModelTests: XCTestCase {
         )
 
         model.add(urls: sequence.frameURLs)
-        let showedPrompt = await waitUntil { model.pendingImportPrompt != nil }
+        let showedPrompt = await waitUntil { model.activeImportDecision != nil }
 
         XCTAssertTrue(showedPrompt)
-        guard case let .convertSequences(resolution)? = model.pendingImportPrompt else {
+        guard case let .sequenceDetected(resolution)? = model.activeImportDecision else {
             return XCTFail("Expected a PNG sequence conversion prompt")
         }
         XCTAssertEqual(resolution.regularImages, [])
         XCTAssertEqual(resolution.sequences, [sequence])
         XCTAssertEqual(resolution.totalCandidateFrameCount, 10)
         XCTAssertEqual(resolution.convertMessage, "发现达到阈值的连续编号 PNG（共 10 张），是否转 GIF？")
-        XCTAssertEqual(model.pendingImportPrompt?.message, "发现达到阈值的连续编号 PNG（共 10 张），是否转 GIF？")
 
-        model.resolvePendingImport(convertSequence: true)
+        model.resolveSequenceDecision(convertSequence: true)
         let finished = await waitUntil { model.tasks.count == 1 && model.tasks[0].state == .completed }
 
         XCTAssertTrue(finished)
@@ -586,9 +584,9 @@ final class GIFImportAppModelTests: XCTestCase {
         )
 
         model.add(urls: sequence.frameURLs)
-        let showedPrompt = await waitUntil { model.pendingImportPrompt != nil }
+        let showedPrompt = await waitUntil { model.activeImportDecision != nil }
         XCTAssertTrue(showedPrompt)
-        model.resolvePendingImport(convertSequence: false)
+        model.resolveSequenceDecision(convertSequence: false)
         let completedFrames = await waitUntil {
             model.tasks.count == sequence.frameURLs.count && model.tasks.allSatisfy { $0.state == .completed }
         }
@@ -617,7 +615,7 @@ final class GIFImportAppModelTests: XCTestCase {
         let encoded = await waitUntil { model.tasks.count == 1 && model.tasks[0].state == .completed }
         XCTAssertTrue(encoded)
 
-        XCTAssertNil(model.pendingImportPrompt)
+        XCTAssertNil(model.activeImportDecision)
         XCTAssertEqual(model.tasks[0].engine, .gifski)
         XCTAssertEqual(model.tasks[0].displayMode, .balanced)
         let calls = await encoder.calls()
@@ -639,7 +637,7 @@ final class GIFImportAppModelTests: XCTestCase {
         let completed = await waitUntil { model.tasks.count == 1 && model.tasks[0].state == .completed }
         XCTAssertTrue(completed)
 
-        XCTAssertNil(model.pendingImportPrompt)
+        XCTAssertNil(model.activeImportDecision)
         XCTAssertEqual(model.tasks[0].sourceURL, source)
         XCTAssertEqual(model.tasks[0].engine, .oxipng)
     }
@@ -656,10 +654,12 @@ final class GIFImportAppModelTests: XCTestCase {
         )
 
         model.add(urls: [source])
-        let showedPrompt = await waitUntil { model.pendingImportPrompt != nil }
+        let showedPrompt = await waitUntil { model.activeImportDecision != nil }
         XCTAssertTrue(showedPrompt)
-        XCTAssertEqual(model.pendingImportPrompt?.message, "是否按常规方式压缩当前文件？")
-        model.resolvePendingImport(compressInstead: true)
+        guard case .noSequenceDetected? = model.activeImportDecision else {
+            return XCTFail("Expected a no-sequence decision")
+        }
+        model.resolveNoSequenceDecision(compressInstead: true)
         let completed = await waitUntil { model.tasks.count == 1 && model.tasks[0].state == .completed }
         XCTAssertTrue(completed)
 
@@ -678,16 +678,50 @@ final class GIFImportAppModelTests: XCTestCase {
         )
 
         model.add(urls: [source])
-        let showedPrompt = await waitUntil { model.pendingImportPrompt != nil }
+        let showedPrompt = await waitUntil { model.activeImportDecision != nil }
         XCTAssertTrue(showedPrompt)
-        model.resolvePendingImport(compressInstead: false)
+        model.resolveNoSequenceDecision(compressInstead: false)
 
-        XCTAssertNil(model.pendingImportPrompt)
+        XCTAssertEqual(model.activeImportDecision, .noSequenceNotice)
         XCTAssertTrue(model.settings.gif.isPNGSequenceConversionEnabled)
         XCTAssertTrue(model.tasks.isEmpty)
-        XCTAssertEqual(model.importNotice?.message, "当前文件夹没有 PNG 序列，无法转 GIF")
-        model.dismissImportNotice()
-        XCTAssertNil(model.importNotice)
+        model.dismissNoSequenceNotice()
+        XCTAssertNil(model.activeImportDecision)
+    }
+
+    func testDecliningNoSequenceNoticeUnlocksTheNextImport() async throws {
+        let directory = try makeTemporaryDirectory("PngCut-DecisionRecoveryTests")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = try makeSourceFile(named: "first.png", in: directory)
+        let second = try makeSourceFile(named: "second.png", in: directory)
+        let model = AppModel(
+            settings: AppSettings(gif: GIFSettings(isPNGSequenceConversionEnabled: true)),
+            loadPersistedSettings: false,
+            sequenceDetector: ModelSequenceDetector()
+        )
+
+        model.add(urls: [first])
+        let showedFirstDecision = await waitUntil { model.activeImportDecision != nil }
+        XCTAssertTrue(showedFirstDecision)
+        guard case .noSequenceDetected? = model.activeImportDecision else {
+            return XCTFail("Expected the no-sequence decision")
+        }
+
+        model.resolveNoSequenceDecision(compressInstead: false)
+        XCTAssertEqual(model.activeImportDecision, .noSequenceNotice)
+        XCTAssertTrue(model.settings.gif.isPNGSequenceConversionEnabled)
+        XCTAssertTrue(model.tasks.isEmpty)
+
+        model.dismissNoSequenceNotice()
+        XCTAssertNil(model.activeImportDecision)
+
+        model.add(urls: [second])
+        let showedSecondDecision = await waitUntil { model.activeImportDecision != nil }
+        XCTAssertTrue(showedSecondDecision)
+        guard case let .noSequenceDetected(resolution)? = model.activeImportDecision else {
+            return XCTFail("Expected the second import to be accepted")
+        }
+        XCTAssertEqual(resolution.regularImages.map(\.fileURL), [second])
     }
 
     func testMixedImportConvertsSequenceAndRoutesStandalonePNGAndGIFAsRegularFiles() async throws {
@@ -784,16 +818,16 @@ final class GIFImportAppModelTests: XCTestCase {
 
         model.add(urls: first.frameURLs)
         model.add(urls: second.frameURLs)
-        let showedFirstPrompt = await waitUntil { model.pendingImportPrompt != nil }
+        let showedFirstPrompt = await waitUntil { model.activeImportDecision != nil }
         XCTAssertTrue(showedFirstPrompt)
-        guard case let .convertSequences(firstResolution)? = model.pendingImportPrompt else {
+        guard case let .sequenceDetected(firstResolution)? = model.activeImportDecision else {
             return XCTFail("Expected the first prompt")
         }
         XCTAssertEqual(firstResolution.sequences, [first])
 
-        model.resolvePendingImport(convertSequence: false)
+        model.resolveSequenceDecision(convertSequence: false)
         let showedSecondPrompt = await waitUntil {
-            guard case let .convertSequences(resolution)? = model.pendingImportPrompt else { return false }
+            guard case let .sequenceDetected(resolution)? = model.activeImportDecision else { return false }
             return resolution.sequences == [second]
         }
         XCTAssertTrue(showedSecondPrompt)

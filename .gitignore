@@ -19,3 +19,6 @@ windows/.diagnostic-*/
 
 # Isolated feature worktrees
 .worktrees/
+
+# Local Superpowers visual-session state
+.superpowers/

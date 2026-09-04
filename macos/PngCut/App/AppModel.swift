@@ -1,6 +1,9 @@
 import AppKit
 import Combine
 import Foundation
+import OSLog
+
+private let importLogger = Logger(subsystem: "com.pngcut.app", category: "import")
 
 enum CompressionMode: String, CaseIterable, Equatable {
     case lossless
@@ -45,34 +48,20 @@ struct ImportResolution: Identifiable, Equatable, Sendable {
     }
 }
 
-enum ImportPrompt: Identifiable, Equatable, Sendable {
-    case convertSequences(ImportResolution)
-    case compressWithoutSequence(ImportResolution)
+enum ImportDecision: Identifiable, Equatable, Sendable {
+    case sequenceDetected(ImportResolution)
+    case noSequenceDetected(ImportResolution)
+    case noSequenceNotice
 
-    var id: UUID {
+    var id: String {
         switch self {
-        case let .convertSequences(resolution), let .compressWithoutSequence(resolution):
-            resolution.id
+        case let .sequenceDetected(resolution):
+            "sequence-\(resolution.id.uuidString)"
+        case let .noSequenceDetected(resolution):
+            "no-sequence-\(resolution.id.uuidString)"
+        case .noSequenceNotice:
+            "no-sequence-notice"
         }
-    }
-
-    var message: String {
-        switch self {
-        case let .convertSequences(resolution):
-            resolution.convertMessage
-        case .compressWithoutSequence:
-            "是否按常规方式压缩当前文件？"
-        }
-    }
-}
-
-struct ImportNotice: Identifiable, Equatable, Sendable {
-    let id: UUID
-    let message: String
-
-    init(id: UUID = UUID(), message: String) {
-        self.id = id
-        self.message = message
     }
 }
 
@@ -128,8 +117,7 @@ final class AppModel: ObservableObject {
     }
     @Published private(set) var tasks: [CompressionTask]
     @Published private(set) var skippedNonPNGCount = 0
-    @Published private(set) var pendingImportPrompt: ImportPrompt?
-    @Published private(set) var importNotice: ImportNotice?
+    @Published private(set) var activeImportDecision: ImportDecision?
 
     private let fileDiscovery: FileDiscovery
     private let sequenceDetector: any PNGSequenceDetecting
@@ -140,7 +128,6 @@ final class AppModel: ObservableObject {
     private var enqueueTail: Task<Void, Never>?
     private var importDiscoveryTail: Task<Void, Never>?
     private var pendingImportResolutions: [ImportResolution] = []
-    private var activeImportResolution: ImportResolution?
     private var isPreparingSequenceImport = false
     private var reservedOutputURLs: Set<URL>
 
@@ -192,6 +179,38 @@ final class AppModel: ObservableObject {
         AppModel(loadPersistedSettings: false)
     }
 
+    #if DEBUG
+    static func uiTestModel(arguments: [String]) -> AppModel? {
+        let model = AppModel(loadPersistedSettings: false)
+
+        if arguments.contains("--ui-test-no-sequence-decision") {
+            model.activeImportDecision = .noSequenceDetected(ImportResolution(
+                regularImages: [],
+                sequences: []
+            ))
+            return model
+        }
+
+        if arguments.contains("--ui-test-sequence-decision") {
+            let root = URL(fileURLWithPath: "/tmp/pngcut-ui-test", isDirectory: true)
+            let sequence = PNGSequence(
+                frameURLs: (1...10).map {
+                    root.appendingPathComponent("walk_\(String(format: "%04d", $0)).png")
+                },
+                importedFolderRoot: root,
+                outputFileName: "walk.gif"
+            )
+            model.activeImportDecision = .sequenceDetected(ImportResolution(
+                regularImages: [],
+                sequences: [sequence]
+            ))
+            return model
+        }
+
+        return nil
+    }
+    #endif
+
     var hasCompletedOutput: Bool {
         tasks.contains { $0.state == .completed && $0.outputURL != nil }
     }
@@ -200,7 +219,12 @@ final class AppModel: ObservableObject {
         tasks.last { $0.state == .completed && $0.outputURL != nil }?.outputURL
     }
 
+    var isImportDecisionPresented: Bool {
+        activeImportDecision != nil
+    }
+
     func add(urls: [URL]) {
+        importLogger.notice("Import accepted: inputCount=\(urls.count, privacy: .public)")
         let previousDiscovery = importDiscoveryTail
         let fileDiscovery = fileDiscovery
         let sequenceDetector = sequenceDetector
@@ -219,19 +243,20 @@ final class AppModel: ObservableObject {
                     skippedNonImageCount: discovery.skippedNonImageCount
                 )
             }.value
+            importLogger.notice(
+                "Import discovery completed: images=\(result.resolution.regularImages.count, privacy: .public), sequences=\(result.resolution.sequences.count, privacy: .public), skipped=\(result.skippedNonImageCount, privacy: .public)"
+            )
             self?.receiveImportDiscovery(result)
         }
         importDiscoveryTail = importTask
     }
 
-    func resolvePendingImport(convertSequence: Bool) {
-        guard let resolution = activeImportResolution,
-              case .convertSequences = pendingImportPrompt else {
+    func resolveSequenceDecision(convertSequence: Bool) {
+        guard case let .sequenceDetected(resolution)? = activeImportDecision else {
             return
         }
 
-        pendingImportPrompt = nil
-        activeImportResolution = nil
+        activeImportDecision = nil
         if convertSequence {
             updateGIFSettings { $0.isPNGSequenceConversionEnabled = true }
             prepareAndEnqueueConvertedSequences(resolution)
@@ -241,25 +266,27 @@ final class AppModel: ObservableObject {
         processNextImportResolutionIfPossible()
     }
 
-    func resolvePendingImport(compressInstead: Bool) {
-        guard let resolution = activeImportResolution,
-              case .compressWithoutSequence = pendingImportPrompt else {
+    func resolveNoSequenceDecision(compressInstead: Bool) {
+        guard case let .noSequenceDetected(resolution)? = activeImportDecision else {
             return
         }
 
-        pendingImportPrompt = nil
-        activeImportResolution = nil
         if compressInstead {
+            activeImportDecision = nil
             updateGIFSettings { $0.isPNGSequenceConversionEnabled = false }
             enqueueRegularImages(in: resolution, includingSequenceFrames: false)
+            processNextImportResolutionIfPossible()
         } else {
-            importNotice = ImportNotice(message: "当前文件夹没有 PNG 序列，无法转 GIF")
+            activeImportDecision = .noSequenceNotice
         }
-        processNextImportResolutionIfPossible()
     }
 
-    func dismissImportNotice() {
-        importNotice = nil
+    func dismissNoSequenceNotice() {
+        guard case .noSequenceNotice? = activeImportDecision else {
+            return
+        }
+
+        activeImportDecision = nil
         processNextImportResolutionIfPossible()
     }
 
@@ -287,6 +314,7 @@ final class AppModel: ObservableObject {
     private func receiveImportDiscovery(_ result: ImportDiscoveryResult) {
         skippedNonPNGCount += result.skippedNonImageCount
         guard !result.resolution.regularImages.isEmpty || !result.resolution.sequences.isEmpty else {
+            importLogger.notice("Import finished without supported images")
             return
         }
         pendingImportResolutions.append(result.resolution)
@@ -294,10 +322,8 @@ final class AppModel: ObservableObject {
     }
 
     private func processNextImportResolutionIfPossible() {
-        guard activeImportResolution == nil,
-              pendingImportPrompt == nil,
-              !isPreparingSequenceImport,
-              importNotice == nil else {
+        guard activeImportDecision == nil,
+              !isPreparingSequenceImport else {
             return
         }
 
@@ -305,19 +331,21 @@ final class AppModel: ObservableObject {
             let resolution = pendingImportResolutions.removeFirst()
             if !resolution.sequences.isEmpty {
                 if settings.gif.isPNGSequenceConversionEnabled {
+                    importLogger.notice("Import decision: convert numbered PNG sequence")
                     prepareAndEnqueueConvertedSequences(resolution)
                     return
                 }
-                activeImportResolution = resolution
-                pendingImportPrompt = .convertSequences(resolution)
+                importLogger.notice("Import decision: show PNG sequence confirmation")
+                activeImportDecision = .sequenceDetected(resolution)
                 return
             }
 
             if settings.gif.isPNGSequenceConversionEnabled {
-                activeImportResolution = resolution
-                pendingImportPrompt = .compressWithoutSequence(resolution)
+                importLogger.notice("Import decision: show ordinary-compression confirmation")
+                activeImportDecision = .noSequenceDetected(resolution)
                 return
             }
+            importLogger.notice("Import decision: enqueue ordinary compression")
             enqueueRegularImages(in: resolution, includingSequenceFrames: false)
         }
     }
@@ -586,8 +614,10 @@ final class AppModel: ObservableObject {
 
     private func startQueue(with preparedTasks: [CompressionQueue.WorkItem], failed failedTasks: [CompressionQueue.WorkItem]) {
         guard !preparedTasks.isEmpty || !failedTasks.isEmpty else {
+            importLogger.error("Import enqueue produced no work items")
             return
         }
+        importLogger.notice("Import queue started: prepared=\(preparedTasks.count, privacy: .public), failed=\(failedTasks.count, privacy: .public)")
         let queue = existingOrNewQueue(defaultCompressor: UnconfiguredCompressor(engine: .oxipng))
 
         let previousEnqueue = enqueueTail
