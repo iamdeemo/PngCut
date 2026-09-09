@@ -226,6 +226,7 @@ private struct EmptyDropView: View {
     let skippedNonImageCount: Int
     let isImportDecisionPresented: Bool
     let chooseFiles: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 13) {
@@ -267,7 +268,8 @@ private struct EmptyDropView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: PngCutMetrics.dropZoneCornerRadius, style: .continuous)
-                    .fill(isTargeted ? PngCutPalette.accent.opacity(0.09) : Color.white.opacity(0.64))
+                    .fill(isTargeted ? PngCutPalette.accent.opacity(0.07) : Color.clear)
+                    .animation(PngCutMotion.controlFeedback(reduceMotion: reduceMotion), value: isTargeted)
                 Color.clear
                     .accessibilityIdentifier("figmaDropZone")
             }
@@ -275,9 +277,10 @@ private struct EmptyDropView: View {
         .overlay {
             RoundedRectangle(cornerRadius: PngCutMetrics.dropZoneCornerRadius, style: .continuous)
                 .stroke(
-                    PngCutPalette.dropStroke,
+                    isTargeted ? PngCutPalette.accent.opacity(0.68) : PngCutPalette.dropStroke,
                     style: StrokeStyle(lineWidth: 1.5, dash: [7, 5])
                 )
+                .animation(PngCutMotion.controlFeedback(reduceMotion: reduceMotion), value: isTargeted)
         }
     }
 

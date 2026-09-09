@@ -95,13 +95,22 @@ struct PngCutPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
             .frame(minHeight: 34)
             .foregroundStyle(.white)
-            .background(PngCutPalette.accent.opacity(configuration.isPressed ? 0.82 : 1))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(
+                LinearGradient(
+                    colors: configuration.isPressed
+                        ? [PngCutPalette.accent.opacity(0.84), PngCutPalette.accent.opacity(0.70)]
+                        : [PngCutPalette.accent, PngCutPalette.accent.opacity(0.84)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
-            .animation(PngCutMotion.controlFeedback(reduceMotion: reduceMotion), value: configuration.isPressed)
+            .animation(.easeInOut(duration: reduceMotion ? 0.12 : 0.11), value: configuration.isPressed)
     }
 }
 
@@ -149,6 +158,7 @@ struct PngCutModeSelector: View {
                 .frame(width: 110, height: PngCutMetrics.modeHeight)
                 .shadow(color: .black.opacity(0.13), radius: 4, y: 1)
                 .offset(x: model.settings.mode == .lossless ? 0 : 110)
+                .animation(PngCutMotion.modeSelection(reduceMotion: reduceMotion), value: model.settings.mode)
 
             HStack(spacing: 0) {
                 modeButton(.lossless)
@@ -156,7 +166,6 @@ struct PngCutModeSelector: View {
             }
         }
         .frame(width: 220, height: PngCutMetrics.modeHeight)
-        .animation(PngCutMotion.modeSelection(reduceMotion: reduceMotion), value: model.settings.mode)
     }
 
     private func modeButton(_ mode: CompressionMode) -> some View {
@@ -165,10 +174,11 @@ struct PngCutModeSelector: View {
             model.setCompressionMode(mode)
         } label: {
             Text(mode.title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12, weight: selected ? .semibold : .regular))
                 .foregroundStyle(selected ? PngCutPalette.primaryText : PngCutPalette.secondaryText)
                 .frame(width: 110, height: PngCutMetrics.modeHeight)
                 .contentShape(Rectangle())
+                .animation(PngCutMotion.textSelection(reduceMotion: reduceMotion), value: selected)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(mode == .lossless ? "modeShortcutLossless" : "modeShortcutBalanced")
@@ -181,6 +191,7 @@ struct PngCutRadioChoice: View {
     let isSelected: Bool
     let isEnabled: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -193,6 +204,7 @@ struct PngCutRadioChoice: View {
                             Circle().fill(PngCutPalette.accent).padding(4)
                         }
                     }
+                    .animation(PngCutMotion.controlFeedback(reduceMotion: reduceMotion), value: isSelected)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.system(size: 13, weight: .medium))
                     if let detail {
@@ -216,6 +228,7 @@ struct PngCutCheckbox: View {
     let isOn: Bool
     let isEnabled: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -232,6 +245,7 @@ struct PngCutCheckbox: View {
                         }
                     }
                     .frame(width: 16, height: 16)
+                    .animation(PngCutMotion.controlFeedback(reduceMotion: reduceMotion), value: isOn)
                 Text(title).font(.system(size: 13, weight: .medium))
                 Spacer(minLength: 0)
             }
