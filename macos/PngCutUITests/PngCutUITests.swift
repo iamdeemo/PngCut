@@ -9,13 +9,19 @@ final class PngCutUITests: XCTestCase {
         app.launch()
     }
 
-    func testEmptyStateShowsSelectionControlsAndDisabledFolder() {
-        XCTAssertTrue(app.buttons["chooseFilesButton"].exists)
+    func testReferenceWindowChromeAndEmptyStateArePresent() {
+        XCTAssertTrue(app.staticTexts["windowTitle"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.otherElements["figmaDropZone"].exists)
+        XCTAssertTrue(app.buttons["chooseFilesButton"].isHittable)
         XCTAssertFalse(app.buttons["revealOutputButton"].isEnabled)
     }
 
-    func testContentDoesNotAddASecondTitleBarSpacer() {
-        XCTAssertFalse(app.otherElements["titleBarBackground"].exists)
+    func testEmptyStateShowsOnlySupportedFormatTags() {
+        XCTAssertTrue(app.staticTexts["formatPNG"].exists)
+        XCTAssertTrue(app.staticTexts["formatJPG"].exists)
+        XCTAssertTrue(app.staticTexts["formatGIF"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "formatWEBP").count, 0)
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", "WEBP")).count, 0)
     }
 
     func testSettingsDrawerOpensAndCloses() {
@@ -45,17 +51,11 @@ final class PngCutUITests: XCTestCase {
         XCTAssertTrue(balanced.isEnabled)
     }
 
-    func testBottomBarControlsRemainSeparatelyAccessible() {
-        let lossless = app.buttons["modeShortcutLossless"]
-        let balanced = app.buttons["modeShortcutBalanced"]
-        let output = app.buttons["revealOutputButton"]
-        let settings = app.buttons["settingsButton"]
-
-        XCTAssertTrue(lossless.waitForExistence(timeout: 2))
-        XCTAssertTrue(lossless.isHittable)
-        XCTAssertTrue(balanced.isHittable)
-        XCTAssertTrue(output.exists)
-        XCTAssertTrue(settings.isHittable)
+    func testReferenceToolbarKeepsAllActionsSeparatelyAccessible() {
+        XCTAssertTrue(app.buttons["modeShortcutLossless"].isHittable)
+        XCTAssertTrue(app.buttons["modeShortcutBalanced"].isHittable)
+        XCTAssertTrue(app.buttons["settingsButton"].isHittable)
+        XCTAssertTrue(app.buttons["revealOutputButton"].exists)
     }
 
     func testBalancedModeIsAvailableInSettings() {

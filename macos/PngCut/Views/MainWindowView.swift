@@ -5,53 +5,19 @@ import UniformTypeIdentifiers
 
 private let importInteractionLogger = Logger(subsystem: "com.pngcut.app", category: "import")
 
-enum AppPalette {
-    static let workspace = NSColor(
-        calibratedRed: 244 / 255,
-        green: 244 / 255,
-        blue: 244 / 255,
-        alpha: 1
-    )
-    static let workspaceColor = Color(nsColor: workspace)
-    static let drawer = NSColor(
-        calibratedRed: 252 / 255,
-        green: 252 / 255,
-        blue: 252 / 255,
-        alpha: 1
-    )
-    static let drawerColor = Color(nsColor: drawer)
-}
-
-enum AppControlMetrics {
-    static let buttonCornerRadius: CGFloat = 5
-    static let iconHitSize: CGFloat = 44
-    static let modeSegmentWidth: CGFloat = 64
-    static let modeVisualHeight: CGFloat = 30
-}
-
-private enum AppMotion {
-    static var responsive: Animation {
-        if #available(macOS 14.0, *) {
-            return .smooth(duration: 0.2, extraBounce: 0)
-        }
-        return .easeInOut(duration: 0.2)
-    }
-}
-
 struct MainWindowView: View {
     @ObservedObject var model: AppModel
     @State private var isSettingsPresented = false
     @State private var isDropTargeted = false
-
-    private let accent = Color(red: 36 / 255, green: 130 / 255, blue: 241 / 255)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
+            PngCutWindowChrome()
             workspace
             bottomBar
         }
-        .background(Color.white)
-        .background(WindowAppearanceConfigurator())
+        .background(PngCutWindowConfigurator())
         .preferredColorScheme(.light)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             guard !model.isImportDecisionPresented else {
@@ -68,7 +34,7 @@ struct MainWindowView: View {
             ImportDecisionOverlay(
                 model: model,
                 decision: decision,
-                accent: accent
+                accent: PngCutPalette.accent
             )
             .transition(.opacity)
             .zIndex(10)
@@ -80,7 +46,6 @@ struct MainWindowView: View {
             Group {
                 if model.tasks.isEmpty {
                     EmptyDropView(
-                        accent: accent,
                         isTargeted: isDropTargeted,
                         skippedNonImageCount: model.skippedNonPNGCount,
                         isImportDecisionPresented: model.isImportDecisionPresented
@@ -92,7 +57,7 @@ struct MainWindowView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AppPalette.workspaceColor)
+            .background(PngCutPalette.workspace)
 
             if isSettingsPresented {
                 ZStack(alignment: .bottom) {
@@ -107,11 +72,11 @@ struct MainWindowView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityIdentifier("settingsDismissArea")
 
-                SettingsDrawerView(model: model, accent: accent)
+                SettingsDrawerView(model: model, accent: PngCutPalette.accent)
                     .zIndex(1)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.move(edge: .bottom))
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 .zIndex(1)
             }
         }
@@ -128,7 +93,7 @@ struct MainWindowView: View {
                 Spacer()
                 Button("添加文件", action: chooseFiles)
                     .buttonStyle(.borderless)
-                    .foregroundStyle(accent)
+                    .foregroundStyle(PngCutPalette.accent)
                     .disabled(model.isImportDecisionPresented)
                     .accessibilityIdentifier("addFilesButton")
             }
@@ -136,7 +101,7 @@ struct MainWindowView: View {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(model.tasks) { task in
-                        TaskRowView(task: task, accent: accent) {
+                        TaskRowView(task: task, accent: PngCutPalette.accent) {
                             model.retryFailed()
                         }
                     }
@@ -150,29 +115,35 @@ struct MainWindowView: View {
                     .accessibilityIdentifier("skippedNonPNGCount")
             }
         }
-        .padding(18)
+        .padding(PngCutMetrics.contentPadding)
     }
 
     private var bottomBar: some View {
         HStack {
-            CompressionModeShortcut(model: model, accent: accent)
+            PngCutModeSelector(model: model)
             Spacer()
-            IconButton(assetName: "FolderOpen", label: "打开输出文件夹") {
+            PngCutToolbarIconButton(assetName: "FolderOpen", label: "打开输出文件夹", isActive: false) {
                 model.revealOutput()
             }
                 .disabled(!model.hasCompletedOutput)
                 .accessibilityIdentifier("revealOutputButton")
-            IconButton(assetName: "Settings", label: "设置", isActive: isSettingsPresented) {
+            PngCutToolbarIconButton(assetName: "Settings", label: "设置", isActive: isSettingsPresented) {
                 toggleSettings()
             }
             .accessibilityIdentifier("settingsButton")
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, PngCutMetrics.contentPadding)
         .frame(maxWidth: .infinity)
-        .frame(height: 52)
-        .background(Color.white.opacity(0.92))
+        .frame(height: PngCutMetrics.toolbarHeight)
+        .background(
+            LinearGradient(
+                colors: [PngCutPalette.toolbarTop, PngCutPalette.toolbarBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .overlay(alignment: .top) {
-            Divider()
+            Rectangle().fill(PngCutPalette.separator).frame(height: 1)
         }
     }
 
@@ -208,13 +179,13 @@ struct MainWindowView: View {
     }
 
     private func toggleSettings() {
-        withAnimation(AppMotion.responsive) {
+        withAnimation(PngCutMotion.settingsSurface(reduceMotion: reduceMotion)) {
             isSettingsPresented.toggle()
         }
     }
 
     private func dismissSettings() {
-        withAnimation(AppMotion.responsive) {
+        withAnimation(PngCutMotion.settingsSurface(reduceMotion: reduceMotion)) {
             isSettingsPresented = false
         }
     }
@@ -251,28 +222,40 @@ struct MainWindowView: View {
 }
 
 private struct EmptyDropView: View {
-    let accent: Color
     let isTargeted: Bool
     let skippedNonImageCount: Int
     let isImportDecisionPresented: Bool
     let chooseFiles: () -> Void
 
     var body: some View {
-        VStack(spacing: 15) {
-            Image("ImageAdd")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 48, height: 48)
-                .foregroundStyle(accent)
-                .accessibilityHidden(true)
-            Text("拖入 PNG/JPG/GIF 文件或文件夹")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.primary)
+        VStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(PngCutPalette.accent.opacity(0.13))
+                Image("ImageAdd")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 44, height: 44)
+                    .foregroundStyle(PngCutPalette.accent)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: 80, height: 80)
+            Text("拖入 PNG / JPG / GIF 文件或文件夹")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(PngCutPalette.primaryText)
+            Text("支持批量处理，可直接拖入文件夹")
+                .font(.system(size: 13))
+                .foregroundStyle(PngCutPalette.secondaryText)
             Button("选择文件", action: chooseFiles)
-                .buttonStyle(PrimaryButtonStyle(accent: accent))
+                .buttonStyle(PngCutPrimaryButtonStyle())
                 .disabled(isImportDecisionPresented)
                 .accessibilityIdentifier("chooseFilesButton")
+            HStack(spacing: 8) {
+                formatTag("PNG", identifier: "formatPNG")
+                formatTag("JPG", identifier: "formatJPG")
+                formatTag("GIF", identifier: "formatGIF")
+            }
             if skippedNonImageCount > 0 {
                 Text("\(skippedNonImageCount) 个非图片文件未添加")
                     .font(.system(size: 11))
@@ -280,8 +263,33 @@ private struct EmptyDropView: View {
                     .accessibilityIdentifier("skippedNonPNGCount")
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(isTargeted ? accent.opacity(0.07) : .clear)
+        .frame(width: PngCutMetrics.dropZoneSize.width, height: PngCutMetrics.dropZoneSize.height)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: PngCutMetrics.dropZoneCornerRadius, style: .continuous)
+                    .fill(isTargeted ? PngCutPalette.accent.opacity(0.09) : Color.white.opacity(0.64))
+                Color.clear
+                    .accessibilityIdentifier("figmaDropZone")
+            }
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: PngCutMetrics.dropZoneCornerRadius, style: .continuous)
+                .stroke(
+                    PngCutPalette.dropStroke,
+                    style: StrokeStyle(lineWidth: 1.5, dash: [7, 5])
+                )
+        }
+    }
+
+    private func formatTag(_ title: String, identifier: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(PngCutPalette.secondaryText)
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(Color.black.opacity(0.05))
+            .clipShape(Capsule())
+            .accessibilityIdentifier(identifier)
     }
 }
 
@@ -357,7 +365,7 @@ private struct ImportDecisionOverlay: View {
             Button("转 GIF") {
                 model.resolveSequenceDecision(convertSequence: true)
             }
-            .buttonStyle(PrimaryButtonStyle(accent: accent))
+            .buttonStyle(PngCutPrimaryButtonStyle())
             .accessibilityIdentifier("importDecisionConvert")
 
         case .noSequenceDetected:
@@ -370,144 +378,15 @@ private struct ImportDecisionOverlay: View {
             Button("常规压缩") {
                 model.resolveNoSequenceDecision(compressInstead: true)
             }
-            .buttonStyle(PrimaryButtonStyle(accent: accent))
+            .buttonStyle(PngCutPrimaryButtonStyle())
             .accessibilityIdentifier("importDecisionCompress")
 
         case .noSequenceNotice:
             Button("好") {
                 model.dismissNoSequenceNotice()
             }
-            .buttonStyle(PrimaryButtonStyle(accent: accent))
+            .buttonStyle(PngCutPrimaryButtonStyle())
             .accessibilityIdentifier("importDecisionAcknowledge")
         }
-    }
-}
-
-private struct IconButton: View {
-    let assetName: String
-    let label: String
-    var isActive = false
-    let action: () -> Void
-    @State private var isHovered = false
-
-    private let accent = Color(red: 36 / 255, green: 130 / 255, blue: 241 / 255)
-
-    var body: some View {
-        Button(action: action) {
-            Image(assetName)
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 20, height: 20)
-                .frame(
-                    width: AppControlMetrics.iconHitSize,
-                    height: AppControlMetrics.iconHitSize
-                )
-                .contentShape(
-                    RoundedRectangle(
-                        cornerRadius: AppControlMetrics.buttonCornerRadius,
-                        style: .continuous
-                    )
-                )
-        }
-        .buttonStyle(.plain)
-        .frame(
-            width: AppControlMetrics.iconHitSize,
-            height: AppControlMetrics.iconHitSize
-        )
-        .foregroundStyle(isHovered || isActive ? accent : Color(red: 0.15, green: 0.19, blue: 0.23))
-        .onHover { isHovered = $0 }
-        .accessibilityLabel(label)
-    }
-}
-
-private struct WindowAppearanceConfigurator: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
-            window.backgroundColor = .white
-            window.titlebarAppearsTransparent = true
-        }
-    }
-}
-
-private struct CompressionModeShortcut: View {
-    @ObservedObject var model: AppModel
-    let accent: Color
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.black.opacity(0.045))
-                .frame(width: controlWidth, height: AppControlMetrics.modeVisualHeight)
-
-            GeometryReader { geometry in
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(accent)
-                    .frame(width: geometry.size.width / 2, height: geometry.size.height)
-                    .offset(x: model.settings.mode == .lossless ? 0 : geometry.size.width / 2)
-                    .accessibilityIdentifier("modeSlider")
-            }
-            .frame(width: controlWidth, height: AppControlMetrics.modeVisualHeight)
-
-            HStack(spacing: 0) {
-                modeButton(.lossless)
-                modeButton(.balanced)
-            }
-            .accessibilityElement(children: .contain)
-        }
-        .frame(width: controlWidth, height: AppControlMetrics.iconHitSize)
-        .animation(AppMotion.responsive, value: model.settings.mode)
-    }
-
-    private func modeButton(_ mode: CompressionMode) -> some View {
-        let selected = model.settings.mode == mode
-        return Button {
-            model.setCompressionMode(mode)
-        } label: {
-            Text(mode.title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(selected ? Color.white : Color.primary)
-                .frame(
-                    width: AppControlMetrics.modeSegmentWidth,
-                    height: AppControlMetrics.iconHitSize
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .frame(
-            width: AppControlMetrics.modeSegmentWidth,
-            height: AppControlMetrics.iconHitSize
-        )
-        .accessibilityIdentifier(mode == .lossless ? "modeShortcutLossless" : "modeShortcutBalanced")
-    }
-
-    private var controlWidth: CGFloat {
-        AppControlMetrics.modeSegmentWidth * 2
-    }
-
-    private var cornerRadius: CGFloat {
-        AppControlMetrics.buttonCornerRadius
-    }
-}
-
-private struct PrimaryButtonStyle: ButtonStyle {
-    let accent: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
-            .foregroundStyle(.white)
-            .background(accent.opacity(configuration.isPressed ? 0.75 : 1))
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: AppControlMetrics.buttonCornerRadius,
-                    style: .continuous
-                )
-            )
     }
 }

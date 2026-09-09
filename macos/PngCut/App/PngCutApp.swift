@@ -21,9 +21,10 @@ struct PngCutApp: App {
     var body: some Scene {
         WindowGroup {
             MainWindowView(model: model)
-                .frame(minWidth: 560, minHeight: 430)
+                .frame(minWidth: PngCutMetrics.windowSize.width, minHeight: PngCutMetrics.windowSize.height)
                 .preferredColorScheme(.light)
         }
+        .defaultSize(width: PngCutMetrics.windowSize.width, height: PngCutMetrics.windowSize.height)
         .windowStyle(.hiddenTitleBar)
     }
 }
