@@ -121,6 +121,19 @@ final class PngCutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["gifLoopForever"].isEnabled)
     }
 
+    func testTaskFixtureShowsProcessingCompletedAndRetryableFailureStates() {
+        app.terminate()
+        app.launchArguments = ["--ui-test-task-states"]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["任务列表"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.otherElements["taskStateProcessing"].exists)
+        XCTAssertTrue(app.otherElements["taskStateCompleted"].exists)
+        XCTAssertTrue(app.otherElements["taskStateFailed"].exists)
+        XCTAssertTrue(app.buttons["retryFailedButton"].isHittable)
+        XCTAssertTrue(app.buttons["addFilesButton"].isHittable)
+    }
+
     func testNoSequenceDecisionBlocksImportUntilNoticeIsAcknowledged() {
         app.terminate()
         app.launchArguments = ["--ui-test-no-sequence-decision"]

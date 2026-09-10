@@ -2,8 +2,8 @@ import SwiftUI
 
 struct TaskRowView: View {
     let task: CompressionTask
-    let accent: Color
     let retry: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -12,42 +12,44 @@ struct TaskRowView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 24, height: 24)
-                .foregroundStyle(accent)
+                .foregroundStyle(PngCutPalette.accent)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(task.displayName)
                     .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(PngCutPalette.primaryText)
                     .lineLimit(1)
                 Text("压缩方式：\(task.displayMode.title)")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PngCutPalette.secondaryText)
                 if let sequenceFrameCount {
                     Text("\(sequenceFrameCount) 张 PNG · \(sourceSize)")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(PngCutPalette.secondaryText)
                 }
                 if sequenceFrameCount == nil || task.state.isFailed || task.state == .completed {
                     taskDetail
                 }
                 if task.state == .processing {
                     ProgressView(value: task.progress)
-                        .tint(accent)
+                        .tint(PngCutPalette.accent)
                         .frame(maxWidth: .infinity)
+                        .animation(progressAnimation, value: task.progress)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 10)
             taskState
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(Color.white)
         .overlay {
-            RoundedRectangle(cornerRadius: 7)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(PngCutPalette.separator, lineWidth: 0.5)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(task.displayName)，\(task.displayMode.title)")
         .accessibilityValue("压缩引擎：\(task.engine.rawValue)")
@@ -57,19 +59,24 @@ struct TaskRowView: View {
     private var taskDetail: some View {
         switch task.state {
         case let .failed(error):
-            Text(message(for: error))
-                .font(.system(size: 11))
-                .foregroundStyle(.red)
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(sourceSize)
+                    .font(.system(size: 11))
+                    .foregroundStyle(PngCutPalette.secondaryText)
+                Text(message(for: error))
+                    .font(.system(size: 11))
+                    .foregroundStyle(failureColor)
+                    .lineLimit(2)
+            }
         case .completed:
             Text(sizeSummary)
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PngCutPalette.secondaryText)
                 .lineLimit(1)
         case .queued, .processing:
             Text(sourceSize)
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PngCutPalette.secondaryText)
         }
     }
 
@@ -79,32 +86,54 @@ struct TaskRowView: View {
         case .queued:
             Text("等待")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PngCutPalette.secondaryText)
         case .processing:
-            Text("处理中")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(accent)
+            stateContainer(identifier: "taskStateProcessing") {
+                Text("处理中 \(progressPercent)%")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(PngCutPalette.accent)
+                    .animation(progressAnimation, value: progressPercent)
+            }
         case .completed:
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("节省 \(savingsPercent)%")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.green)
-                Text("完成")
-                    .font(.system(size: 10))
-                    .foregroundStyle(accent)
+            stateContainer(identifier: "taskStateCompleted") {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("节省 \(savingsPercent)%")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(savingsColor)
+                    Text("完成")
+                        .font(.system(size: 10))
+                        .foregroundStyle(PngCutPalette.accent)
+                }
             }
         case .failed:
-            if task.isRetryable {
-                Button("重试", action: retry)
-                    .buttonStyle(.borderless)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(accent)
-            } else {
-                Text("无法转换")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.red)
+            stateContainer(identifier: "taskStateFailed") {
+                if task.isRetryable {
+                    Button("重试", action: retry)
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(PngCutPalette.accent)
+                        .accessibilityIdentifier("retryFailedButton")
+                } else {
+                    Text("无法转换")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(failureColor)
+                }
             }
         }
+    }
+
+    private func stateContainer<Content: View>(
+        identifier: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ZStack {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier(identifier)
+            content()
+        }
+        .fixedSize()
     }
 
     private var sequenceFrameCount: Int? {
@@ -138,12 +167,28 @@ struct TaskRowView: View {
         return "\(sourceSize) → \(ByteCountFormatter.string(fromByteCount: compressedFileSize, countStyle: .file))"
     }
 
+    private var progressPercent: Int {
+        Int((task.progress * 100).rounded())
+    }
+
+    private var progressAnimation: Animation? {
+        reduceMotion ? nil : .linear(duration: 0.15)
+    }
+
     private var savingsPercent: Int {
         guard let source = task.originalFileSize,
               let compressed = task.compressedFileSize else { return 0 }
         guard source > 0 else { return 0 }
         let saved = max(0, source - compressed)
         return Int((Double(saved) / Double(source) * 100).rounded())
+    }
+
+    private var savingsColor: Color {
+        Color(red: 0.12, green: 0.58, blue: 0.32)
+    }
+
+    private var failureColor: Color {
+        Color(red: 0.82, green: 0.18, blue: 0.18)
     }
 
     private func fileSize(at url: URL) -> Int64 {

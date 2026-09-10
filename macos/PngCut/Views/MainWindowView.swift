@@ -94,9 +94,15 @@ struct MainWindowView: View {
     private var taskList: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("\(model.tasks.count) 个文件")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("任务列表")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(PngCutPalette.primaryText)
+                        .accessibilityIdentifier("任务列表")
+                    Text("\(model.tasks.count) 个文件")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(PngCutPalette.secondaryText)
+                }
                 Spacer()
                 Button("添加文件", action: chooseFiles)
                     .buttonStyle(.borderless)
@@ -108,12 +114,19 @@ struct MainWindowView: View {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(model.tasks) { task in
-                        TaskRowView(task: task, accent: PngCutPalette.accent) {
+                        TaskRowView(task: task) {
                             model.retryFailed()
                         }
                     }
                 }
+                .padding(10)
             }
+            .background(Color.white.opacity(0.72))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(PngCutPalette.separator, lineWidth: 0.5)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             if model.skippedNonPNGCount > 0 {
                 Text("\(model.skippedNonPNGCount) 个非图片文件未添加")

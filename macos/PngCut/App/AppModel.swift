@@ -181,6 +181,46 @@ final class AppModel: ObservableObject {
 
     #if DEBUG
     static func uiTestModel(arguments: [String]) -> AppModel? {
+        if arguments.contains("--ui-test-task-states") {
+            let root = URL(fileURLWithPath: "/tmp/pngcut-ui-test", isDirectory: true)
+            let processing = CompressionTask(
+                sourceURL: root.appendingPathComponent("processing.png"),
+                displayName: "processing.png",
+                originalFileSize: 2_400_000,
+                state: .processing,
+                progress: 0.63,
+                format: .png,
+                engine: .oxipng,
+                displayMode: .lossless
+            )
+            let completed = CompressionTask(
+                sourceURL: root.appendingPathComponent("complete.jpg"),
+                displayName: "complete.jpg",
+                outputURL: root.appendingPathComponent("complete_pngcut.jpg"),
+                originalFileSize: 3_000_000,
+                compressedFileSize: 1_800_000,
+                state: .completed,
+                progress: 1,
+                format: .jpeg,
+                engine: .mozjpeg,
+                displayMode: .balanced
+            )
+            let failed = CompressionTask(
+                sourceURL: root.appendingPathComponent("failed.gif"),
+                displayName: "failed.gif",
+                originalFileSize: 1_200_000,
+                state: .failed(CompressionFailure(
+                    code: .engineFailed,
+                    technicalMessage: "UI fixture failure"
+                )),
+                progress: 0.42,
+                format: .gif,
+                engine: .gifsicle,
+                displayMode: .lossless
+            )
+            return AppModel(tasks: [processing, completed, failed], loadPersistedSettings: false)
+        }
+
         let model = AppModel(loadPersistedSettings: false)
 
         if arguments.contains("--ui-test-no-sequence-decision") {
