@@ -9,107 +9,20 @@ struct SettingsDrawerView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
-                settingsSection("保存位置") {
-                    radio(title: "原文件旁边", isSelected: model.settings.outputPolicy == .adjacent) {
-                        model.settings.outputPolicy = .adjacent
-                    }
-                    radio(title: "指定输出文件夹", isSelected: model.settings.outputPolicy == .customDirectory) {
-                        chooseOutputDirectory()
-                    }
-                    radio(title: "覆盖原文件", isSelected: model.settings.outputPolicy == .overwrite) {
-                        model.settings.outputPolicy = .overwrite
-                    }
-                }
-
-                Divider()
-
-                settingsSection("压缩方式") {
-                    radio(title: "无损", isSelected: model.settings.mode == .lossless) {
-                        model.setCompressionMode(.lossless)
-                    }
-                    radio(title: "平衡", isSelected: model.settings.mode == .balanced) {
-                        model.setCompressionMode(.balanced)
-                    }
-                    .accessibilityIdentifier("balancedMode")
-                    Text("本地有损压缩")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-
-                Divider()
-
-                settingsSection("GIF 设置") {
-                    Toggle("PNG 序列转 GIF", isOn: pngSequenceGIFEnabled)
-                        .toggleStyle(.checkbox)
-                        .font(.system(size: 12))
-                        .accessibilityIdentifier("pngSequenceGIFEnabled")
-
-                    Text("帧率")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        ForEach(GIFFrameRate.presetValues, id: \.self) { frameRate in
-                            radio(
-                                title: "\(frameRate) 帧/秒",
-                                isSelected: model.settings.gif.frameRate == .preset(frameRate),
-                                expandsToFill: false
-                            ) {
-                                updateGIFSettings { $0.frameRate = .preset(frameRate) }
-                                customFrameRateError = nil
-                            }
-                            .accessibilityIdentifier("gifFrameRate\(frameRate)")
-                        }
-                        radio(
-                            title: "自定义",
-                            isSelected: isCustomFrameRateSelected,
-                            expandsToFill: false,
-                            action: commitCustomFrameRate
-                        )
-                        .accessibilityIdentifier("gifFrameRateCustom")
-
-                        TextField("1–50", text: $customFrameRateText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 58)
-                            .accessibilityIdentifier("gifCustomFrameRate")
-                            .onSubmit(commitCustomFrameRate)
-                        Spacer()
-                    }
-                    if let customFrameRateError {
-                        Text(customFrameRateError)
-                            .font(.system(size: 10))
-                            .foregroundStyle(.red)
-                    }
-
-                    Text("循环")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 18) {
-                        radio(
-                            title: "无限循环",
-                            isSelected: model.settings.gif.loop == .forever,
-                            expandsToFill: false
-                        ) {
-                            updateGIFSettings { $0.loop = .forever }
-                        }
-                        .accessibilityIdentifier("gifLoopForever")
-                        radio(
-                            title: "播放一次",
-                            isSelected: model.settings.gif.loop == .once,
-                            expandsToFill: false
-                        ) {
-                            updateGIFSettings { $0.loop = .once }
-                        }
-                        .accessibilityIdentifier("gifLoopOnce")
-                        Spacer()
-                    }
-                }
+            VStack(alignment: .leading, spacing: 24) {
+                outputSettings
+                settingsDivider
+                compressionSettings
+                settingsDivider
+                gifSettings
             }
-            .padding(16)
+            .frame(maxWidth: 620, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 28)
         }
-        .frame(maxHeight: 340)
-        .background(AppPalette.drawerColor)
-        .overlay(alignment: .top) { Divider() }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(PngCutPalette.workspace)
         .onAppear {
             if case let .custom(frameRate) = model.settings.gif.frameRate {
                 customFrameRateText = String(frameRate)
@@ -117,45 +30,197 @@ struct SettingsDrawerView: View {
         }
     }
 
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(PngCutPalette.separator)
+            .frame(height: 1)
+    }
+
+    private var outputSettings: some View {
+        settingsSection("保存位置") {
+            HStack(alignment: .top, spacing: 12) {
+                PngCutRadioChoice(
+                    title: "原文件旁边",
+                    detail: nil,
+                    isSelected: model.settings.outputPolicy == .adjacent,
+                    isEnabled: true
+                ) {
+                    model.settings.outputPolicy = .adjacent
+                }
+                PngCutRadioChoice(
+                    title: "指定输出文件夹",
+                    detail: nil,
+                    isSelected: model.settings.outputPolicy == .customDirectory,
+                    isEnabled: true
+                ) {
+                    chooseOutputDirectory()
+                }
+                PngCutRadioChoice(
+                    title: "覆盖原文件",
+                    detail: nil,
+                    isSelected: model.settings.outputPolicy == .overwrite,
+                    isEnabled: true
+                ) {
+                    model.settings.outputPolicy = .overwrite
+                }
+            }
+        }
+    }
+
+    private var compressionSettings: some View {
+        settingsSection("压缩方式") {
+            HStack(alignment: .top, spacing: 12) {
+                PngCutRadioChoice(
+                    title: "无损",
+                    detail: "文件较大，质量完整保留",
+                    isSelected: model.settings.mode == .lossless,
+                    isEnabled: true
+                ) {
+                    model.setCompressionMode(.lossless)
+                }
+                PngCutRadioChoice(
+                    title: "平衡",
+                    detail: "文件较小，轻微质量损失",
+                    isSelected: model.settings.mode == .balanced,
+                    isEnabled: true
+                ) {
+                    model.setCompressionMode(.balanced)
+                }
+                .accessibilityIdentifier("balancedMode")
+            }
+            Text("本地有损压缩")
+                .font(.system(size: 11))
+                .foregroundStyle(PngCutPalette.secondaryText)
+        }
+    }
+
+    private var gifSettings: some View {
+        settingsSection("GIF 设置") {
+            PngCutCheckbox(
+                title: "PNG 序列转 GIF",
+                isOn: model.settings.gif.isPNGSequenceConversionEnabled,
+                isEnabled: true
+            ) {
+                updateGIFSettings { $0.isPNGSequenceConversionEnabled.toggle() }
+            }
+            .accessibilityRepresentation {
+                Toggle("PNG 序列转 GIF", isOn: pngSequenceGIFEnabled)
+                    .accessibilityIdentifier("pngSequenceGIFEnabled")
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("帧率")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(PngCutPalette.secondaryText)
+                frameRateControls
+            }
+            .disabled(!model.settings.gif.isPNGSequenceConversionEnabled)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("循环")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(PngCutPalette.secondaryText)
+                HStack(spacing: 12) {
+                    gifChoice(
+                        title: "无限循环",
+                        identifier: "gifLoopForever",
+                        isSelected: model.settings.gif.loop == .forever
+                    ) {
+                        updateGIFSettings { $0.loop = .forever }
+                    }
+                    gifChoice(
+                        title: "播放一次",
+                        identifier: "gifLoopOnce",
+                        isSelected: model.settings.gif.loop == .once
+                    ) {
+                        updateGIFSettings { $0.loop = .once }
+                    }
+                }
+            }
+            .disabled(!model.settings.gif.isPNGSequenceConversionEnabled)
+
+            if let customFrameRateError {
+                Text(customFrameRateError)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var frameRateControls: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HStack(spacing: 8) {
+                ForEach(GIFFrameRate.presetValues, id: \.self) { frameRate in
+                    frameRateButton(for: frameRate)
+                }
+            }
+            customFrameRateControl
+        }
+    }
+
+    private func frameRateButton(for frameRate: Int) -> some View {
+        gifChoice(
+            title: "\(frameRate)",
+            identifier: "gifFrameRate\(frameRate)",
+            isSelected: model.settings.gif.frameRate == .preset(frameRate)
+        ) {
+            updateGIFSettings { $0.frameRate = .preset(frameRate) }
+            customFrameRateError = nil
+        }
+        .frame(width: 58)
+    }
+
+    private var customFrameRateControl: some View {
+        HStack(spacing: 8) {
+            gifChoice(
+                title: "自定义",
+                identifier: "gifFrameRateCustom",
+                isSelected: isCustomFrameRateSelected,
+                action: commitCustomFrameRate
+            )
+            .frame(width: 88)
+
+            TextField("1–50", text: $customFrameRateText)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 58)
+                .accessibilityIdentifier("gifCustomFrameRate")
+                .onSubmit(commitCustomFrameRate)
+                .disabled(!model.settings.gif.isPNGSequenceConversionEnabled)
+                .opacity(gifControlsOpacity)
+        }
+    }
+
+    private func gifChoice(
+        title: String,
+        identifier: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        PngCutRadioChoice(
+            title: title,
+            detail: nil,
+            isSelected: isSelected,
+            isEnabled: model.settings.gif.isPNGSequenceConversionEnabled,
+            action: action
+        )
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var gifControlsOpacity: Double {
+        model.settings.gif.isPNGSequenceConversionEnabled ? 1 : 0.48
+    }
+
     private func settingsSection<Content: View>(
         _ title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(PngCutPalette.primaryText)
             content()
         }
-    }
-
-    private func radio(
-        title: String,
-        isSelected: Bool,
-        isEnabled: Bool = true,
-        expandsToFill: Bool = true,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Circle()
-                    .stroke(isSelected ? accent : Color.secondary.opacity(0.55), lineWidth: 1.5)
-                    .frame(width: 14, height: 14)
-                    .overlay {
-                        if isSelected {
-                            Circle().fill(accent).padding(3)
-                        }
-                }
-                Text(title)
-                    .font(.system(size: 12))
-                if expandsToFill {
-                    Spacer()
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(isEnabled ? Color.primary : Color.secondary.opacity(0.5))
-        .disabled(!isEnabled)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var pngSequenceGIFEnabled: Binding<Bool> {

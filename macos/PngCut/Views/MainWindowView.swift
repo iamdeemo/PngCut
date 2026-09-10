@@ -43,45 +43,52 @@ struct MainWindowView: View {
 
     private var workspace: some View {
         ZStack {
-            Group {
-                if model.tasks.isEmpty {
-                    EmptyDropView(
-                        isTargeted: isDropTargeted,
-                        skippedNonImageCount: model.skippedNonPNGCount,
-                        isImportDecisionPresented: model.isImportDecisionPresented
-                    ) {
-                        chooseFiles()
-                    }
-                } else {
-                    taskList
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(PngCutPalette.workspace)
+            homeOrTaskWorkspace
+                .opacity(isSettingsPresented ? 0 : 1)
+                .scaleEffect(isSettingsPresented && !reduceMotion ? 0.97 : 1)
+                .allowsHitTesting(!isSettingsPresented)
+                .animation(PngCutMotion.homeYield(reduceMotion: reduceMotion), value: isSettingsPresented)
 
             if isSettingsPresented {
-                ZStack(alignment: .bottom) {
-                Button {
-                    dismissSettings()
-                } label: {
-                    Rectangle()
-                        .fill(Color.black.opacity(0.001))
-                        .contentShape(Rectangle())
+                ZStack {
+                    Color.clear
+                        .accessibilityElement()
+                        .accessibilityIdentifier("settingsSurface")
+                    SettingsDrawerView(model: model, accent: PngCutPalette.accent)
                 }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityIdentifier("settingsDismissArea")
-
-                SettingsDrawerView(model: model, accent: PngCutPalette.accent)
+                    .transition(settingsSurfaceTransition)
+                    .accessibilityElement(children: .contain)
                     .zIndex(1)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                .zIndex(1)
             }
         }
+        .animation(PngCutMotion.settingsSurface(reduceMotion: reduceMotion), value: isSettingsPresented)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+    }
+
+    private var homeOrTaskWorkspace: some View {
+        Group {
+            if model.tasks.isEmpty {
+                EmptyDropView(
+                    isTargeted: isDropTargeted,
+                    skippedNonImageCount: model.skippedNonPNGCount,
+                    isImportDecisionPresented: model.isImportDecisionPresented
+                ) {
+                    chooseFiles()
+                }
+            } else {
+                taskList
+            }
+        }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(PngCutPalette.workspace)
+    }
+
+    private var settingsSurfaceTransition: AnyTransition {
+        .asymmetric(
+            insertion: .offset(y: 18).combined(with: .opacity),
+            removal: .offset(y: 18).combined(with: .opacity)
+        )
     }
 
     private var taskList: some View {
@@ -181,12 +188,6 @@ struct MainWindowView: View {
     private func toggleSettings() {
         withAnimation(PngCutMotion.settingsSurface(reduceMotion: reduceMotion)) {
             isSettingsPresented.toggle()
-        }
-    }
-
-    private func dismissSettings() {
-        withAnimation(PngCutMotion.settingsSurface(reduceMotion: reduceMotion)) {
-            isSettingsPresented = false
         }
     }
 

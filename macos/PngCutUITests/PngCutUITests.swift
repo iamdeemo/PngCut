@@ -24,24 +24,13 @@ final class PngCutUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", "WEBP")).count, 0)
     }
 
-    func testSettingsDrawerOpensAndCloses() {
+    func testSettingsSurfaceOpensAndClosesFromTheToolbar() {
         let settings = app.buttons["settingsButton"]
         settings.tap()
-        let settingsDrawer = app.staticTexts["保存位置"]
-        XCTAssertTrue(settingsDrawer.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.otherElements["settingsSurface"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["保存位置"].exists)
         settings.tap()
-        XCTAssertFalse(settingsDrawer.waitForExistence(timeout: 1))
-    }
-
-    func testSettingsDrawerClosesWhenBlankWorkspaceIsClicked() {
-        app.buttons["settingsButton"].tap()
-        XCTAssertTrue(app.buttons["settingsDismissArea"].waitForExistence(timeout: 2))
-
-        app.windows.firstMatch
-            .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
-            .tap()
-
-        XCTAssertFalse(app.staticTexts["保存位置"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.otherElements["settingsSurface"].waitForExistence(timeout: 2))
     }
 
     func testBottomBarOffersEnabledBalancedShortcut() {
@@ -84,6 +73,52 @@ final class PngCutUITests: XCTestCase {
         XCTAssertTrue(app.textFields["gifCustomFrameRate"].exists)
         XCTAssertTrue(app.buttons["gifLoopForever"].exists)
         XCTAssertTrue(app.buttons["gifLoopOnce"].exists)
+    }
+
+    func testSettingsDrawerKeepsGIFLoopOptionsVisibleWithoutScrolling() {
+        app.buttons["settingsButton"].tap()
+        XCTAssertTrue(app.staticTexts["GIF 设置"].waitForExistence(timeout: 2))
+
+        let loopForever = app.buttons["gifLoopForever"]
+        let loopOnce = app.buttons["gifLoopOnce"]
+        XCTAssertTrue(loopForever.waitForExistence(timeout: 2))
+        XCTAssertTrue(loopOnce.waitForExistence(timeout: 2))
+        XCTAssertTrue(loopForever.isHittable)
+        XCTAssertTrue(loopOnce.isHittable)
+    }
+
+    func testWideSettingsKeepsReferenceVerticalGroupOrder() {
+        app.terminate()
+        app.launchArguments = ["--ui-test-wide-window"]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 2))
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, 1_000)
+
+        app.buttons["settingsButton"].tap()
+        let output = app.staticTexts["保存位置"]
+        let compression = app.staticTexts["压缩方式"]
+        let gif = app.staticTexts["GIF 设置"]
+        XCTAssertTrue(gif.waitForExistence(timeout: 2))
+
+        XCTAssertGreaterThan(compression.frame.minY, output.frame.maxY)
+        XCTAssertGreaterThan(gif.frame.minY, compression.frame.maxY)
+        XCTAssertLessThan(abs(compression.frame.minX - output.frame.minX), 8)
+        XCTAssertLessThan(abs(gif.frame.minX - output.frame.minX), 8)
+    }
+
+    func testGIFControlsRemainVisibleButDisabledUntilPNGSequenceConversionIsEnabled() {
+        app.buttons["settingsButton"].tap()
+        let pngSequenceGIFEnabled = app.checkBoxes["pngSequenceGIFEnabled"]
+        XCTAssertTrue(pngSequenceGIFEnabled.waitForExistence(timeout: 2))
+        if app.buttons["gifFrameRate30"].isEnabled {
+            pngSequenceGIFEnabled.tap()
+        }
+        XCTAssertFalse(app.buttons["gifFrameRate30"].isEnabled)
+        XCTAssertFalse(app.buttons["gifLoopForever"].isEnabled)
+        pngSequenceGIFEnabled.tap()
+        XCTAssertTrue(app.buttons["gifFrameRate30"].isEnabled)
+        XCTAssertTrue(app.buttons["gifLoopForever"].isEnabled)
     }
 
     func testNoSequenceDecisionBlocksImportUntilNoticeIsAcknowledged() {
