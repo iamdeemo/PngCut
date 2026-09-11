@@ -180,7 +180,7 @@ final class AppModel: ObservableObject {
     }
 
     #if DEBUG
-    static func uiTestModel(arguments: [String]) -> AppModel? {
+    static func uiTestModel(arguments: [String], preferences: UserDefaults = .standard) -> AppModel? {
         if arguments.contains("--ui-test-task-states") {
             let root = URL(fileURLWithPath: "/tmp/pngcut-ui-test", isDirectory: true)
             let processing = CompressionTask(
@@ -218,10 +218,14 @@ final class AppModel: ObservableObject {
                 engine: .gifsicle,
                 displayMode: .lossless
             )
-            return AppModel(tasks: [processing, completed, failed], loadPersistedSettings: false)
+            return AppModel(
+                tasks: [processing, completed, failed],
+                preferences: preferences,
+                loadPersistedSettings: false
+            )
         }
 
-        let model = AppModel(loadPersistedSettings: false)
+        let model = AppModel(preferences: preferences, loadPersistedSettings: false)
 
         if arguments.contains("--ui-test-no-sequence-decision") {
             model.activeImportDecision = .noSequenceDetected(ImportResolution(

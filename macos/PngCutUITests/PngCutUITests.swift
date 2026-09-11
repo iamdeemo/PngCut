@@ -1,11 +1,13 @@
 import XCTest
 
 final class PngCutUITests: XCTestCase {
+    private static let isolatedPreferencesArgument = "--ui-test-isolated-preferences"
     private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        app.launchArguments = [Self.isolatedPreferencesArgument]
         app.launch()
     }
 
@@ -89,7 +91,7 @@ final class PngCutUITests: XCTestCase {
 
     func testWideSettingsKeepsReferenceVerticalGroupOrder() {
         app.terminate()
-        app.launchArguments = ["--ui-test-wide-window"]
+        app.launchArguments = [Self.isolatedPreferencesArgument, "--ui-test-wide-window"]
         app.launch()
 
         XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 2))
@@ -105,6 +107,18 @@ final class PngCutUITests: XCTestCase {
         XCTAssertGreaterThan(gif.frame.minY, compression.frame.maxY)
         XCTAssertLessThan(abs(compression.frame.minX - output.frame.minX), 8)
         XCTAssertLessThan(abs(gif.frame.minX - output.frame.minX), 8)
+    }
+
+    func testIsolatedLaunchStartsWithPNGSequenceConversionDisabled() {
+        app.terminate()
+        app.launchArguments = [Self.isolatedPreferencesArgument]
+        app.launch()
+
+        app.buttons["settingsButton"].tap()
+        let pngSequenceGIFEnabled = app.checkBoxes["pngSequenceGIFEnabled"]
+        XCTAssertTrue(pngSequenceGIFEnabled.waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["gifFrameRate30"].isEnabled)
+        XCTAssertFalse(app.buttons["gifLoopForever"].isEnabled)
     }
 
     func testGIFControlsRemainVisibleButDisabledUntilPNGSequenceConversionIsEnabled() {
@@ -123,7 +137,7 @@ final class PngCutUITests: XCTestCase {
 
     func testTaskFixtureShowsProcessingCompletedAndRetryableFailureStates() {
         app.terminate()
-        app.launchArguments = ["--ui-test-task-states"]
+        app.launchArguments = [Self.isolatedPreferencesArgument, "--ui-test-task-states"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["任务列表"].waitForExistence(timeout: 2))
@@ -136,7 +150,7 @@ final class PngCutUITests: XCTestCase {
 
     func testNoSequenceDecisionBlocksImportUntilNoticeIsAcknowledged() {
         app.terminate()
-        app.launchArguments = ["--ui-test-no-sequence-decision"]
+        app.launchArguments = [Self.isolatedPreferencesArgument, "--ui-test-no-sequence-decision"]
         app.launch()
 
         let title = app.staticTexts["未发现 PNG 序列"]
@@ -154,7 +168,7 @@ final class PngCutUITests: XCTestCase {
 
     func testSequenceDecisionShowsBothExplicitActions() {
         app.terminate()
-        app.launchArguments = ["--ui-test-sequence-decision"]
+        app.launchArguments = [Self.isolatedPreferencesArgument, "--ui-test-sequence-decision"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["发现 PNG 序列"].waitForExistence(timeout: 2))
