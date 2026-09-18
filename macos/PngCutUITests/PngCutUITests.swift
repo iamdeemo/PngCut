@@ -13,9 +13,15 @@ final class PngCutUITests: XCTestCase {
 
     func testReferenceWindowChromeAndEmptyStateArePresent() {
         XCTAssertTrue(app.staticTexts["windowTitle"].waitForExistence(timeout: 2))
+        XCTAssertEqual(app.staticTexts["windowTitle"].value as? String, "PngCut")
+        XCTAssertLessThan(app.staticTexts["windowTitle"].frame.maxY - app.windows.firstMatch.frame.minY, 42)
         XCTAssertTrue(app.otherElements["figmaDropZone"].exists)
         XCTAssertTrue(app.buttons["chooseFilesButton"].isHittable)
         XCTAssertFalse(app.buttons["revealOutputButton"].isEnabled)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "PngCut-Minimal-Home-Default"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     func testEmptyStateShowsOnlySupportedFormatTags() {
@@ -54,7 +60,10 @@ final class PngCutUITests: XCTestCase {
         let balanced = app.buttons["balancedMode"]
         XCTAssertTrue(balanced.waitForExistence(timeout: 2))
         XCTAssertTrue(balanced.isEnabled)
-        XCTAssertTrue(app.staticTexts["本地有损压缩"].exists)
+        XCTAssertFalse(app.staticTexts["本地有损压缩"].exists)
+        let gap = balanced.frame.minX - app.buttons["losslessMode"].frame.maxX
+        XCTAssertGreaterThanOrEqual(gap, 16)
+        XCTAssertLessThanOrEqual(gap, 32)
     }
 
     func testSettingsDoesNotShowTinifyConfiguration() {
@@ -96,6 +105,10 @@ final class PngCutUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["settingsButton"].waitForExistence(timeout: 2))
         XCTAssertGreaterThan(app.windows.firstMatch.frame.width, 1_000)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "PngCut-Minimal-Home-Wide"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
 
         app.buttons["settingsButton"].tap()
         let output = app.staticTexts["保存位置"]
@@ -107,6 +120,46 @@ final class PngCutUITests: XCTestCase {
         XCTAssertGreaterThan(gif.frame.minY, compression.frame.maxY)
         XCTAssertLessThan(abs(compression.frame.minX - output.frame.minX), 8)
         XCTAssertLessThan(abs(gif.frame.minX - output.frame.minX), 8)
+        XCTAssertLessThanOrEqual(app.buttons["balancedMode"].frame.minX - app.buttons["losslessMode"].frame.maxX, 32)
+    }
+
+    func testCustomOutputPathSavesAndAllSettingsFitWithoutScrolling() {
+        app.buttons["settingsButton"].tap()
+        app.buttons["customOutputDirectoryOption"].tap()
+        let path = app.textFields["outputDirectoryPath"]
+        XCTAssertTrue(path.waitForExistence(timeout: 2))
+        XCTAssertTrue(path.isHittable)
+        path.click()
+        path.typeText("/tmp\n")
+
+        app.buttons["settingsButton"].tap()
+        app.buttons["settingsButton"].tap()
+        XCTAssertEqual(app.textFields["outputDirectoryPath"].value as? String, "/tmp")
+        app.checkBoxes["pngSequenceGIFEnabled"].tap()
+        XCTAssertTrue(app.buttons["gifLoopOnce"].isEnabled)
+        let footerTop = app.buttons["settingsButton"].frame.minY
+        for control in [app.buttons["gifLoopForever"], app.buttons["gifLoopOnce"], app.textFields["gifCustomFrameRate"]] {
+            XCTAssertTrue(control.isHittable)
+            XCTAssertLessThan(control.frame.maxY, footerTop)
+        }
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "PngCut-Compact-C-Settings"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    func testInvalidOutputPathShowsInlineErrorAndDoesNotReplaceSavedPath() {
+        app.buttons["settingsButton"].tap()
+        app.buttons["customOutputDirectoryOption"].tap()
+        let path = app.textFields["outputDirectoryPath"]
+        path.click()
+        path.typeText("/tmp\n")
+        path.typeKey("a", modifierFlags: .command)
+        path.typeText("/tmp/pngcut-missing-\(UUID().uuidString)\n")
+        XCTAssertTrue((app.staticTexts["outputDirectoryPathMessage"].value as? String ?? "").contains("文件夹不存在"))
+        app.buttons["settingsButton"].tap()
+        app.buttons["settingsButton"].tap()
+        XCTAssertEqual(app.textFields["outputDirectoryPath"].value as? String, "/tmp")
     }
 
     func testIsolatedLaunchStartsWithPNGSequenceConversionDisabled() {
@@ -155,9 +208,9 @@ final class PngCutUITests: XCTestCase {
 
         let title = app.staticTexts["未发现 PNG 序列"]
         XCTAssertTrue(title.waitForExistence(timeout: 2))
+        app.activate()
         XCTAssertFalse(app.buttons["chooseFilesButton"].isEnabled)
         XCTAssertTrue(app.buttons["不压缩"].isHittable)
-
         app.buttons["不压缩"].tap()
         XCTAssertTrue(app.staticTexts["当前文件夹没有 PNG 序列，无法转 GIF"].waitForExistence(timeout: 2))
         app.buttons["好"].tap()
@@ -172,8 +225,16 @@ final class PngCutUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["发现 PNG 序列"].waitForExistence(timeout: 2))
+        app.activate()
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "PngCut-Compact-C-Dialog"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         XCTAssertTrue(app.buttons["转 GIF"].isHittable)
         XCTAssertTrue(app.buttons["常规压缩"].isHittable)
+        XCTAssertEqual(app.buttons["常规压缩"].frame.height, app.buttons["转 GIF"].frame.height, accuracy: 1)
         XCTAssertFalse(app.buttons["chooseFilesButton"].isEnabled)
+        app.buttons["常规压缩"].tap()
+        XCTAssertFalse(app.staticTexts["发现 PNG 序列"].exists)
     }
 }

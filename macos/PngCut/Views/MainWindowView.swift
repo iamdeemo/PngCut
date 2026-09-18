@@ -26,6 +26,8 @@ struct MainWindowView: View {
             return acceptDrop(providers)
         }
         .overlay(importDecisionOverlay)
+        // Keep the window chrome and modal hit regions in the same full-window coordinate space.
+        .ignoresSafeArea(.container, edges: .top)
     }
 
     @ViewBuilder
@@ -243,25 +245,29 @@ private struct EmptyDropView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        GeometryReader { geometry in
+            dropZone
+                .frame(
+                    width: geometry.size.width * PngCutMetrics.dropZoneWidthRatio,
+                    height: geometry.size.height * PngCutMetrics.dropZoneHeightRatio
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var dropZone: some View {
         VStack(spacing: 13) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(PngCutPalette.accent.opacity(0.13))
-                Image("ImageAdd")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 44, height: 44)
-                    .foregroundStyle(PngCutPalette.accent)
-                    .accessibilityHidden(true)
-            }
-            .frame(width: 80, height: 80)
-            Text("拖入 PNG / JPG / GIF 文件或文件夹")
+            Image("ImageAdd")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: PngCutMetrics.dropIconSize, height: PngCutMetrics.dropIconSize)
+                .foregroundStyle(PngCutPalette.accent)
+                .accessibilityHidden(true)
+                .frame(width: 80, height: 80)
+            Text("拖入图片或文件夹")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(PngCutPalette.primaryText)
-            Text("支持批量处理，可直接拖入文件夹")
-                .font(.system(size: 13))
-                .foregroundStyle(PngCutPalette.secondaryText)
             Button("选择文件", action: chooseFiles)
                 .buttonStyle(PngCutPrimaryButtonStyle())
                 .disabled(isImportDecisionPresented)
@@ -278,7 +284,7 @@ private struct EmptyDropView: View {
                     .accessibilityIdentifier("skippedNonPNGCount")
             }
         }
-        .frame(width: PngCutMetrics.dropZoneSize.width, height: PngCutMetrics.dropZoneSize.height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: PngCutMetrics.dropZoneCornerRadius, style: .continuous)
@@ -376,7 +382,7 @@ private struct ImportDecisionOverlay: View {
             Button("常规压缩") {
                 model.resolveSequenceDecision(convertSequence: false)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(PngCutSecondaryButtonStyle())
             .accessibilityIdentifier("importDecisionCompress")
 
             Button("转 GIF") {
@@ -389,7 +395,7 @@ private struct ImportDecisionOverlay: View {
             Button("不压缩") {
                 model.resolveNoSequenceDecision(compressInstead: false)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(PngCutSecondaryButtonStyle())
             .accessibilityIdentifier("importDecisionDecline")
 
             Button("常规压缩") {

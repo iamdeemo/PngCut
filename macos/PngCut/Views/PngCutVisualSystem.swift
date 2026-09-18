@@ -3,10 +3,12 @@ import SwiftUI
 
 enum PngCutMetrics {
     static let windowSize = CGSize(width: 720, height: 540)
-    static let titleBarHeight: CGFloat = 44
+    static let titleBarHeight: CGFloat = 40
     static let toolbarHeight: CGFloat = 56
     static let contentPadding: CGFloat = 24
-    static let dropZoneSize = CGSize(width: 520, height: 320)
+    static let dropZoneWidthRatio: CGFloat = 0.80
+    static let dropZoneHeightRatio: CGFloat = 0.72
+    static let dropIconSize: CGFloat = 64
     static let dropZoneCornerRadius: CGFloat = 18
     static let modeHeight: CGFloat = 36
     static let iconHitSize: CGFloat = 44
@@ -66,18 +68,10 @@ struct PngCutWindowChrome: View {
             HStack(spacing: 0) {
                 Color.clear.frame(width: 76)
                 Spacer(minLength: 0)
-                HStack(spacing: 7) {
-                    Image("ImageFile")
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(PngCutPalette.primaryText)
-                    Text("图片压缩")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(PngCutPalette.primaryText)
-                        .accessibilityIdentifier("windowTitle")
-                }
+                Text("PngCut")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(PngCutPalette.primaryText)
+                    .accessibilityIdentifier("windowTitle")
                 Spacer(minLength: 0)
                 Color.clear.frame(width: 76)
             }
@@ -109,6 +103,27 @@ struct PngCutPrimaryButtonStyle: ButtonStyle {
                 )
             )
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .animation(.easeInOut(duration: reduceMotion ? 0.12 : 0.11), value: configuration.isPressed)
+    }
+}
+
+struct PngCutSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .frame(minHeight: 34)
+            .foregroundStyle(PngCutPalette.primaryText)
+            .background(PngCutPalette.windowBottom.opacity(configuration.isPressed ? 1 : 0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(PngCutPalette.separator.opacity(0.6), lineWidth: 1)
+            }
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
             .animation(.easeInOut(duration: reduceMotion ? 0.12 : 0.11), value: configuration.isPressed)
     }
@@ -191,6 +206,7 @@ struct PngCutRadioChoice: View {
     let isSelected: Bool
     let isEnabled: Bool
     let action: () -> Void
+    var fillsWidth = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -211,7 +227,9 @@ struct PngCutRadioChoice: View {
                         Text(detail).font(.system(size: 11)).foregroundStyle(PngCutPalette.secondaryText)
                     }
                 }
-                Spacer(minLength: 0)
+                if fillsWidth {
+                    Spacer(minLength: 0)
+                }
             }
             .frame(minHeight: 32)
             .contentShape(Rectangle())
@@ -271,6 +289,8 @@ struct PngCutWindowConfigurator: NSViewRepresentable {
         DispatchQueue.main.async {
             guard let window = view.window else { return }
             window.backgroundColor = .white
+            window.title = "PngCut"
+            window.styleMask.insert(.fullSizeContentView)
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isMovableByWindowBackground = true

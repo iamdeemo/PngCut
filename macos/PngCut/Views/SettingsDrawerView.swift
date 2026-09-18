@@ -6,28 +6,36 @@ struct SettingsDrawerView: View {
     let accent: Color
     @State private var customFrameRateText = ""
     @State private var customFrameRateError: String?
+    @State private var outputPathText = ""
+    @State private var outputPathError: String?
+    @FocusState private var isOutputPathFocused: Bool
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 outputSettings
                 settingsDivider
                 compressionSettings
                 settingsDivider
                 gifSettings
             }
-            .frame(maxWidth: 620, alignment: .leading)
+            .frame(maxWidth: 720, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 28)
             .padding(.vertical, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(PngCutPalette.workspace)
         .onAppear {
+            outputPathText = model.settings.customOutputDirectory?.path ?? ""
             if case let .custom(frameRate) = model.settings.gif.frameRate {
                 customFrameRateText = String(frameRate)
             }
         }
+        .onChange(of: isOutputPathFocused) { focused in
+            if !focused { commitOutputPathIfNeeded() }
+        }
+        .onDisappear { commitOutputPathIfNeeded() }
     }
 
     private var settingsDivider: some View {
@@ -38,7 +46,7 @@ struct SettingsDrawerView: View {
 
     private var outputSettings: some View {
         settingsSection("保存位置") {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 20) {
                 PngCutRadioChoice(
                     title: "原文件旁边",
                     detail: nil,
@@ -47,14 +55,17 @@ struct SettingsDrawerView: View {
                 ) {
                     model.settings.outputPolicy = .adjacent
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 PngCutRadioChoice(
                     title: "指定输出文件夹",
                     detail: nil,
                     isSelected: model.settings.outputPolicy == .customDirectory,
                     isEnabled: true
                 ) {
-                    chooseOutputDirectory()
+                    model.settings.outputPolicy = .customDirectory
                 }
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityIdentifier("customOutputDirectoryOption")
                 PngCutRadioChoice(
                     title: "覆盖原文件",
                     detail: nil,
@@ -63,34 +74,70 @@ struct SettingsDrawerView: View {
                 ) {
                     model.settings.outputPolicy = .overwrite
                 }
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            if model.settings.outputPolicy == .customDirectory {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text("输出路径")
+                            .font(.system(size: 12))
+                            .foregroundStyle(PngCutPalette.secondaryText)
+                        TextField("输入文件夹路径", text: $outputPathText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12))
+                            .padding(.horizontal, 10)
+                            .frame(height: 34)
+                            .background(.white, in: RoundedRectangle(cornerRadius: 7))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 7)
+                                    .strokeBorder(PngCutPalette.dropStroke, lineWidth: 1)
+                            }
+                            .focused($isOutputPathFocused)
+                            .onSubmit(commitOutputPath)
+                            .accessibilityLabel("输出路径")
+                            .accessibilityIdentifier("outputDirectoryPath")
+                        Button("选择…", action: chooseOutputDirectory)
+                            .buttonStyle(PngCutSecondaryButtonStyle())
+                            .accessibilityIdentifier("chooseOutputDirectory")
+                    }
+                    Text(outputPathError.map { "未保存：\($0)" } ?? "支持输入绝对路径或 ~/，按回车确认")
+                        .font(.system(size: 11))
+                        .foregroundStyle(outputPathError == nil ? PngCutPalette.secondaryText : .red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("outputDirectoryPathMessage")
+                }
             }
         }
     }
 
     private var compressionSettings: some View {
         settingsSection("压缩方式") {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: 24) {
                 PngCutRadioChoice(
                     title: "无损",
                     detail: "文件较大，质量完整保留",
                     isSelected: model.settings.mode == .lossless,
-                    isEnabled: true
-                ) {
-                    model.setCompressionMode(.lossless)
-                }
+                    isEnabled: true,
+                    action: {
+                        model.setCompressionMode(.lossless)
+                    },
+                    fillsWidth: false
+                )
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityIdentifier("losslessMode")
                 PngCutRadioChoice(
                     title: "平衡",
                     detail: "文件较小，轻微质量损失",
                     isSelected: model.settings.mode == .balanced,
-                    isEnabled: true
-                ) {
-                    model.setCompressionMode(.balanced)
-                }
+                    isEnabled: true,
+                    action: {
+                        model.setCompressionMode(.balanced)
+                    },
+                    fillsWidth: false
+                )
+                .fixedSize(horizontal: true, vertical: false)
                 .accessibilityIdentifier("balancedMode")
             }
-            Text("本地有损压缩")
-                .font(.system(size: 11))
-                .foregroundStyle(PngCutPalette.secondaryText)
         }
     }
 
@@ -108,19 +155,15 @@ struct SettingsDrawerView: View {
                     .accessibilityIdentifier("pngSequenceGIFEnabled")
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("帧率")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(PngCutPalette.secondaryText)
+            HStack(spacing: 12) {
+                parameterLabel("帧率")
                 frameRateControls
             }
             .disabled(!model.settings.gif.isPNGSequenceConversionEnabled)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("循环")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(PngCutPalette.secondaryText)
-                HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                parameterLabel("循环")
+                HStack(spacing: 24) {
                     gifChoice(
                         title: "无限循环",
                         identifier: "gifLoopForever",
@@ -167,7 +210,7 @@ struct SettingsDrawerView: View {
             updateGIFSettings { $0.frameRate = .preset(frameRate) }
             customFrameRateError = nil
         }
-        .frame(width: 58)
+        .frame(width: 46)
     }
 
     private var customFrameRateControl: some View {
@@ -178,7 +221,7 @@ struct SettingsDrawerView: View {
                 isSelected: isCustomFrameRateSelected,
                 action: commitCustomFrameRate
             )
-            .frame(width: 88)
+            .frame(width: 74)
 
             TextField("1–50", text: $customFrameRateText)
                 .textFieldStyle(.roundedBorder)
@@ -201,7 +244,8 @@ struct SettingsDrawerView: View {
             detail: nil,
             isSelected: isSelected,
             isEnabled: model.settings.gif.isPNGSequenceConversionEnabled,
-            action: action
+            action: action,
+            fillsWidth: false
         )
         .accessibilityIdentifier(identifier)
     }
@@ -214,13 +258,44 @@ struct SettingsDrawerView: View {
         _ title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .top, spacing: 20) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(PngCutPalette.primaryText)
-            content()
+                .frame(width: 88, height: 32, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func parameterLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(PngCutPalette.secondaryText)
+            .frame(width: 32, alignment: .leading)
+    }
+
+    private func commitOutputPathIfNeeded() {
+        guard model.settings.outputPolicy == .customDirectory,
+              outputPathText != (model.settings.customOutputDirectory?.path ?? "") else { return }
+        commitOutputPath()
+    }
+
+    private func commitOutputPath() {
+        do {
+            let directory = try OutputPolicy.validatedCustomDirectory(path: outputPathText)
+            var settings = model.settings
+            settings.outputPolicy = .customDirectory
+            settings.customOutputDirectory = directory
+            model.settings = settings
+            outputPathText = directory.path
+            outputPathError = nil
+        } catch {
+            outputPathError = error.localizedDescription
+        }
     }
 
     private var pngSequenceGIFEnabled: Binding<Bool> {
@@ -263,10 +338,11 @@ struct SettingsDrawerView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
+        panel.directoryURL = model.settings.customOutputDirectory
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
-            model.settings.outputPolicy = .customDirectory
-            model.settings.customOutputDirectory = url
+            outputPathText = url.path
+            commitOutputPath()
         }
     }
 }

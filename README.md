@@ -16,6 +16,8 @@ LICENSE     GPL v3 许可证
 
 ## macOS
 
+当前发布版本：[PngCut 1.0.2](https://github.com/iamdeemo/PngCut/releases/tag/v1.0.2)。支持 Intel 与 Apple 芯片，安装包和校验文件见发布页；更新内容见 [更新说明](CHANGELOG.md)。
+
 要求 macOS 13+ 与 Xcode 15.2+。
 
 ```bash
@@ -24,6 +26,14 @@ xcodebuild -project PngCut.xcodeproj -scheme PngCut -configuration Debug \
   -derivedDataPath .build/DerivedData-Debug CODE_SIGNING_ALLOWED=NO build
 open .build/DerivedData-Debug/Build/Products/Debug/pngcut.app
 ```
+
+打包 DMG：
+
+```bash
+bash macos/scripts/create-dmg.sh
+```
+
+请在仓库根目录运行。安装包输出至 `macos/dist/PngCut-1.0.2.dmg`。
 
 运行测试：
 

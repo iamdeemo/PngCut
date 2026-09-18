@@ -23,6 +23,35 @@ final class OutputPolicyTests: XCTestCase {
         XCTAssertEqual(prepared.finalURL, directory.appendingPathComponent("banner_pngcut.png"))
     }
 
+    func testTypedOutputPathAcceptsSpacesAndChineseFolderNames() throws {
+        let output = directory.appendingPathComponent("压缩 图片", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
+        let resolved = try OutputPolicy.validatedCustomDirectory(path: "  \(output.path)\n")
+        XCTAssertEqual(resolved, output.standardizedFileURL)
+        let prepared = try OutputPolicy.customDirectory.prepare(source: source, customDirectory: resolved)
+        XCTAssertEqual(prepared.finalURL.deletingLastPathComponent(), output.standardizedFileURL)
+    }
+
+    func testTypedOutputPathExpandsHomeDirectory() throws {
+        let resolved = try OutputPolicy.validatedCustomDirectory(path: "~/")
+        XCTAssertEqual(resolved, FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL)
+    }
+
+    func testTypedOutputPathRejectsInvalidDestinationsWithoutCreatingThem() {
+        let missing = directory.appendingPathComponent("not-created").path
+        for (path, expected) in [
+            ("  ", OutputDirectoryPathError.empty),
+            ("relative/folder", .notAbsolute),
+            (missing, .doesNotExist),
+            (source.path, .notDirectory)
+        ] {
+            XCTAssertThrowsError(try OutputPolicy.validatedCustomDirectory(path: path)) { error in
+                XCTAssertEqual(error as? OutputDirectoryPathError, expected)
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: missing))
+    }
+
     func testAdjacentJPEGOutputPreservesNormalizedExtensionForFinalAndTemporaryFiles() throws {
         let jpegSource = directory.appendingPathComponent("photo.JPEG")
         try Data("source".utf8).write(to: jpegSource)

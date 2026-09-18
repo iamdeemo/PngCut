@@ -5,6 +5,23 @@ enum OutputPolicy: Equatable {
     case customDirectory
     case overwrite
 
+    static func validatedCustomDirectory(path: String) throws -> URL {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw OutputDirectoryPathError.empty }
+        let expanded = (trimmed as NSString).expandingTildeInPath
+        guard expanded.hasPrefix("/") else { throw OutputDirectoryPathError.notAbsolute }
+        let url = URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+            throw OutputDirectoryPathError.doesNotExist
+        }
+        guard isDirectory.boolValue else { throw OutputDirectoryPathError.notDirectory }
+        guard FileManager.default.isWritableFile(atPath: url.path) else {
+            throw OutputDirectoryPathError.notWritable
+        }
+        return url
+    }
+
     func prepare(
         source: URL,
         customDirectory: URL? = nil,
@@ -16,6 +33,20 @@ enum OutputPolicy: Equatable {
             reservedFinalURLs: reservedFinalURLs
         )
         return try planner.prepare(source: source)
+    }
+}
+
+enum OutputDirectoryPathError: LocalizedError, Equatable {
+    case empty, notAbsolute, doesNotExist, notDirectory, notWritable
+
+    var errorDescription: String? {
+        switch self {
+        case .empty: "请输入输出文件夹路径"
+        case .notAbsolute: "请输入以 / 或 ~/ 开头的文件夹路径"
+        case .doesNotExist: "文件夹不存在，请先创建或选择已有文件夹"
+        case .notDirectory: "此路径是文件，请输入文件夹路径"
+        case .notWritable: "此文件夹不可写入，请选择其他位置"
+        }
     }
 }
 

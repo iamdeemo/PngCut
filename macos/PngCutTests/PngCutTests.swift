@@ -32,8 +32,8 @@ final class PngCutTests: XCTestCase {
     func testAppPublishesTheNextReleaseVersion() {
         let bundle = Bundle(for: AppModel.self)
 
-        XCTAssertEqual(bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, "1.0.1")
-        XCTAssertEqual(bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String, "2")
+        XCTAssertEqual(bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String, "1.0.2")
+        XCTAssertEqual(bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String, "3")
     }
 
     func testWorkspacePaletteUsesRequestedF4Gray() {
